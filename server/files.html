@@ -1,0 +1,928 @@
+﻿<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HEXTRA - File Manager</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#111214;--bg2:#18191c;--bg3:#1e2023;--bg4:#25272b;
+  --border:#2a2d32;--border2:#33373d;
+  --text:#d4d4d8;--text2:#a1a1aa;--text3:#71717a;--text4:#52525b;
+  --accent:#e03a3a;--accent2:#b92c2c;--accent-bg:rgba(224,58,58,.1);
+  --green:#6bbd7a;--green-bg:rgba(107,189,122,.1);
+  --yellow:#d4a55a;--yellow-bg:rgba(212,165,90,.1);
+  --red:#cd6060;--red-bg:rgba(205,96,96,.1);
+  --sans:'IBM Plex Sans',system-ui,-apple-system,sans-serif;
+  --mono:'IBM Plex Mono','SF Mono',monospace;
+  --radius:8px;--radius-lg:12px;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13px;-webkit-font-smoothing:antialiased}
+body{overflow:hidden}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+::-webkit-scrollbar-thumb:hover{background:var(--text4)}
+.page{height:100vh;overflow-y:auto;background:var(--bg)}
+.page-shell{padding:24px;display:flex;flex-direction:column;gap:16px;min-height:100%}
+.page-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.page-header h2{font-size:18px;font-weight:600;color:var(--text);margin-bottom:4px}
+.page-header p{font-size:12px;color:var(--text3);line-height:1.6;max-width:820px}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn,.btn-link{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border:none;border-radius:var(--radius);font-family:var(--sans);font-size:12px;font-weight:500;cursor:pointer;transition:all .12s;white-space:nowrap;text-decoration:none}
+.btn-primary{background:var(--accent);color:var(--bg)}
+.btn-primary:hover{background:var(--accent2)}
+.btn-ghost,.btn-link{background:var(--bg3);color:var(--text2);border:1px solid var(--border2)}
+.btn-ghost:hover,.btn-link:hover{background:var(--bg4);color:var(--text)}
+.btn-danger{background:var(--red-bg);color:var(--red);border:1px solid rgba(205,96,96,.15)}
+.btn-danger:hover{background:rgba(205,96,96,.18)}
+.workspace{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.toolbar{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:16px 18px;border-bottom:1px solid var(--border);background:var(--bg2)}
+.pathbar{display:flex;flex-direction:column;gap:10px;min-width:0}
+.path-title{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.path-title span{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;font-weight:600;color:var(--text3)}
+.path-title small{font-size:11px;color:var(--text4);font-family:var(--mono)}
+.breadcrumbs{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.crumb{padding:6px 10px;border-radius:var(--radius);background:var(--bg3);border:1px solid var(--border);font-size:11px;color:var(--text2);cursor:pointer;font-family:var(--sans);transition:all .12s}
+.crumb:hover{background:var(--bg4);color:var(--text)}
+.crumb.active{background:var(--accent-bg);border-color:rgba(224,58,58,.15);color:var(--accent)}
+.drop-hover{border-color:rgba(224,58,58,.35)!important;background:var(--accent-bg)!important;color:var(--accent)!important}
+.right-tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.status{min-height:18px;font-size:12px}
+.status.ok{color:var(--green)}
+.status.err{color:var(--red)}
+.status.load{color:var(--yellow)}
+.main{display:grid;grid-template-columns:340px minmax(0,1fr);min-height:640px}
+.sidebar{border-right:1px solid var(--border);padding:16px;background:var(--bg2)}
+.panel{padding:16px;border-radius:var(--radius-lg);background:var(--bg2);border:1px solid var(--border);transition:border-color .12s}
+.panel:hover{border-color:var(--border2)}
+.panel + .panel{margin-top:14px}
+.panel h3{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);margin-bottom:14px;font-weight:600}
+.drop-zone{border:1px dashed var(--border2);border-radius:var(--radius-lg);padding:28px 18px;text-align:center;background:var(--bg);cursor:pointer;transition:border-color .12s,background .12s}
+.drop-zone:hover,.drop-zone.drag{border-color:var(--accent);background:var(--accent-bg)}
+.drop-zone.has-file{border-color:rgba(107,189,122,.28);background:var(--green-bg)}
+.drop-icon{font-size:22px;margin-bottom:8px;color:var(--accent)}
+.drop-label{color:var(--text2);font-size:12px;line-height:1.6}
+.drop-label b{color:var(--text)}
+.meta{min-height:18px;margin-top:10px;font-size:11px;color:var(--text4)}
+.field{margin-top:14px}
+.field label{display:block;margin-bottom:6px;font-size:10px;letter-spacing:1px;color:var(--text3);font-weight:600;text-transform:uppercase}
+.field input{width:100%;padding:9px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:var(--sans);font-size:12px;outline:none;transition:border-color .15s}
+.field input:focus{border-color:var(--accent)}
+.progress{display:none;margin-top:12px}
+.progress-bar{height:8px;border-radius:999px;overflow:hidden;background:var(--bg);border:1px solid var(--border)}
+.progress-fill{height:100%;width:0%;background:var(--accent);transition:width .2s ease}
+.tips{display:grid;gap:8px}
+.tip{padding:12px 14px;border-radius:var(--radius);background:var(--bg3);border:1px solid var(--border);font-size:11px;line-height:1.65;color:var(--text3)}
+.tip b{color:var(--text)}
+.live-list{display:grid;gap:8px}
+.live-item{padding:10px 12px;border-radius:var(--radius);background:var(--bg3);border:1px solid var(--border)}
+.live-item b{display:block;font-size:12px;color:var(--text);margin-bottom:4px}
+.live-item span{display:block;font-size:10px;color:var(--text4);margin-top:3px;word-break:break-word}
+.content{padding:18px;display:flex;flex-direction:column;gap:14px}
+.summary{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.summary .info{font-size:11px;color:var(--text3)}
+.table-wrap{border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;background:var(--bg2)}
+table{width:100%;border-collapse:collapse}
+thead th{text-align:left;padding:10px 12px;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--text4);background:var(--bg2);border-bottom:1px solid var(--border);font-weight:600}
+tbody td{padding:11px 12px;border-bottom:1px solid var(--border);font-size:12px;vertical-align:middle}
+tbody tr:hover td{background:var(--bg3)}
+tbody tr:last-child td{border-bottom:none}
+.drag-row{cursor:grab}
+.drag-row td:first-child{position:relative;padding-left:28px}
+.drag-row td:first-child::before{content:"::";position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:10px;letter-spacing:-1px;color:var(--text4)}
+.drag-row.dragging{opacity:.45}
+.folder-row.drop-hover td{background:var(--accent-bg)!important}
+.entry-main{display:flex;align-items:center;gap:10px}
+.entry-icon{width:25.2px;height:25.2px;flex:0 0 25.2px;display:inline-flex;align-items:center;justify-content:center}
+.entry-icon.cloud{width:27px;height:27px;flex:0 0 27px}
+.entry-icon img{width:100%;height:100%;display:block;object-fit:contain}
+.entry-icon svg{width:100%;height:100%;display:block}
+.entry-btn{background:none;border:none;color:var(--text);font:600 13px var(--sans);cursor:pointer;text-align:left}
+.entry-btn.folder{color:var(--accent)}
+.entry-sub{display:none}
+.entry-type{display:inline-flex;align-items:center;gap:8px;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:600;letter-spacing:.3px}
+.entry-type.dir{background:var(--accent-bg);color:var(--accent)}
+.entry-type.file{background:var(--bg4);color:var(--text3)}
+.row-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.action-icon{width:12px;height:12px;display:block;object-fit:contain}
+.action-icon-svg{width:12px;height:12px;display:block}
+.mini{padding:5px 10px;font-size:11px}
+.empty{padding:54px 16px;text-align:center;color:var(--text4);font-size:12px}
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);align-items:center;justify-content:center;z-index:50}
+.overlay.open{display:flex}
+.editor-modal{width:min(1100px,94vw);height:min(82vh,860px);display:flex;flex-direction:column;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-lg);box-shadow:0 20px 60px rgba(0,0,0,.45);overflow:hidden}
+.editor-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-bottom:1px solid var(--border)}
+.editor-title{min-width:0}
+.editor-title h3{font-size:13px;font-weight:600;color:var(--text)}
+.editor-title p{margin-top:4px;font-size:11px;color:var(--text4);font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.editor-actions{display:flex;gap:8px;flex-wrap:wrap}
+.editor-meta{padding:10px 16px;border-bottom:1px solid var(--border);font-size:11px;color:var(--text3);background:var(--bg3);display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.editor-area{flex:1;min-height:0}
+.editor-text{width:100%;height:100%;padding:16px;background:var(--bg);border:none;color:var(--text);font:12px/1.7 var(--mono);resize:none;outline:none;tab-size:2}
+.editor-hint{color:var(--text4);font-size:10px;font-family:var(--mono)}
+.editor-area .CodeMirror{height:100%;font:13px/1.75 Consolas,'IBM Plex Mono','SF Mono',monospace;background:#1b1d22;color:#d7dae0}
+.editor-area .CodeMirror-gutters{background:#17191d;border-right:1px solid #262a31}
+.editor-area .CodeMirror-linenumber{color:#7a818d}
+.editor-area .CodeMirror-cursor{border-left:2px solid #f08a8a}
+.editor-area .CodeMirror-activeline-background{background:rgba(255,255,255,.022)}
+.editor-area .CodeMirror-selected{background:rgba(240,138,138,.14)}
+.editor-area .CodeMirror-matchingbracket{color:#f5f7fb !important;border-bottom:1px solid #f08a8a}
+.editor-area .cm-comment{color:#7f9a74}
+.editor-area .cm-keyword,.editor-area .cm-operator{color:#c8a2d6}
+.editor-area .cm-number{color:#c6d7a4}
+.editor-area .cm-def,.editor-area .cm-variable{color:#9ec7de}
+.editor-area .cm-property{color:#a9c4d6}
+.editor-area .cm-string,.editor-area .cm-string-2{color:#d8a182}
+.editor-area .cm-tag{color:#7eaed6}
+.editor-area .cm-attribute{color:#b8cfde}
+.editor-area .cm-qualifier,.editor-area .cm-builtin{color:#d6cf9f}
+.editor-area .cm-meta{color:#cfb78e}
+.editor-area .cm-atom{color:#89acd2}
+.editor-area .cm-type{color:#7dc2b7}
+.editor-area .cm-error{background:rgba(205,96,96,.12);color:#f2b4b4}
+@media (max-width:1080px){.main{grid-template-columns:1fr}.sidebar{border-right:none;border-bottom:1px solid var(--border)}}
+@media (max-width:720px){
+  .page-shell{padding:16px}
+  .page-header{flex-direction:column;align-items:flex-start}
+  .toolbar{grid-template-columns:1fr}
+  .right-tools{justify-content:flex-start}
+  .summary{align-items:flex-start}
+  thead{display:none}
+  table,tbody,tr,td{display:block;width:100%}
+  tbody td{padding:10px 14px}
+  .row-actions{margin-top:8px}
+  .editor-modal{width:100vw;height:100vh;max-width:none;border-radius:0}
+}
+
+/* Softer admin-matched grey theme */
+:root{
+  --bg:#0f1011;
+  --bg2:#151617;
+  --bg3:#1a1b1d;
+  --bg4:#212326;
+  --border:#24262a;
+  --border2:#303238;
+  --text:#deded9;
+  --text2:#b0b0aa;
+  --text3:#858780;
+  --text4:#62645f;
+  --accent:#b7bbb1;
+  --accent2:#d0d2ca;
+  --accent-bg:rgba(183,187,177,.09);
+  --green:#a3ad98;
+  --green-bg:rgba(163,173,152,.1);
+  --yellow:#b9ab83;
+  --yellow-bg:rgba(185,171,131,.11);
+  --red:#c98282;
+  --red-bg:rgba(201,130,130,.1);
+  --radius:10px;
+  --radius-lg:18px;
+}
+html,body{
+  background:
+    radial-gradient(circle at 18% 12%, rgba(255,255,255,.045), transparent 28%),
+    radial-gradient(circle at 82% 8%, rgba(183,187,177,.035), transparent 30%),
+    var(--bg);
+}
+.page{background:transparent}
+.page-shell{padding:10px;gap:10px}
+.page-header{
+  padding:18px 16px 12px;
+  border-bottom:1px solid var(--border);
+}
+.page-header h2{
+  font-size:22px;
+  letter-spacing:-.04em;
+  color:var(--text);
+}
+.page-header p{
+  color:var(--text3);
+  max-width:920px;
+}
+.workspace{
+  background:rgba(18,19,20,.96);
+  border-color:var(--border);
+  border-radius:22px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.025);
+}
+.toolbar{
+  background:rgba(19,20,21,.98);
+  border-bottom-color:var(--border);
+  padding:16px 18px;
+}
+.main{min-height:calc(100vh - 150px)}
+.sidebar{
+  background:rgba(17,18,19,.96);
+  border-right-color:var(--border);
+}
+.content{background:rgba(15,16,17,.35)}
+.panel,.table-wrap,.editor-modal{
+  background:rgba(20,21,22,.94);
+  border-color:var(--border);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.025);
+}
+.panel:hover{border-color:var(--border2)}
+.panel h3,.path-title span{
+  color:var(--accent);
+  letter-spacing:.16em;
+}
+.btn,.btn-link,.crumb{
+  border-radius:12px;
+  font-weight:650;
+}
+.btn-primary{
+  background:linear-gradient(180deg,#d5d7d0,#aeb2a9);
+  color:#111214;
+}
+.btn-primary:hover{background:linear-gradient(180deg,#e0e1dc,#b8bbb3)}
+.btn-ghost,.btn-link,.crumb{
+  background:rgba(255,255,255,.035);
+  color:var(--text2);
+  border-color:var(--border);
+}
+.btn-ghost:hover,.btn-link:hover,.crumb:hover{
+  background:rgba(255,255,255,.06);
+  color:var(--text);
+  border-color:var(--border2);
+}
+.btn-danger{
+  color:#d59b9b;
+  background:rgba(201,130,130,.08);
+  border-color:rgba(201,130,130,.18);
+}
+.btn-danger:hover{background:rgba(201,130,130,.14)}
+.crumb.active,.entry-type.dir{
+  background:var(--accent-bg);
+  border-color:rgba(183,187,177,.18);
+  color:var(--accent2);
+}
+.drop-zone{
+  background:rgba(255,255,255,.018);
+  border-color:var(--border2);
+}
+.drop-zone:hover,.drop-zone.drag,.drop-hover,.folder-row.drop-hover td{
+  border-color:rgba(183,187,177,.3)!important;
+  background:rgba(183,187,177,.08)!important;
+  color:var(--accent2)!important;
+}
+.drop-icon,.entry-btn.folder{color:var(--accent2)}
+.field input,.editor-text{
+  background:rgba(255,255,255,.035);
+  border-color:var(--border);
+}
+.field input:focus{border-color:rgba(183,187,177,.34)}
+.progress-fill{background:linear-gradient(90deg,#8f958b,#c5c8bf)}
+.tip,.live-item{
+  background:rgba(255,255,255,.026);
+  border-color:var(--border);
+}
+thead th{
+  background:rgba(255,255,255,.025);
+  color:var(--text3);
+  border-bottom-color:var(--border);
+}
+tbody td{border-bottom-color:var(--border)}
+tbody tr:hover td{background:rgba(255,255,255,.026)}
+.entry-btn{color:var(--text)}
+.entry-type.file{
+  background:rgba(255,255,255,.045);
+  color:var(--text3);
+}
+.entry-icon svg path,
+.action-icon-svg path{fill:var(--accent2)}
+.btn-danger .action-icon-svg path{fill:currentColor}
+.overlay{background:rgba(0,0,0,.62)}
+.editor-head,.editor-meta{border-color:var(--border)}
+.editor-meta{background:rgba(255,255,255,.025)}
+.editor-area .CodeMirror{
+  background:#151617;
+  color:var(--text);
+}
+.editor-area .CodeMirror-gutters{
+  background:#111214;
+  border-right-color:var(--border);
+}
+.editor-area .CodeMirror-cursor{border-left-color:var(--accent2)}
+.editor-area .CodeMirror-selected{background:rgba(183,187,177,.16)}
+.editor-area .CodeMirror-matchingbracket{
+  color:var(--text)!important;
+  border-bottom-color:var(--accent2);
+}
+</style>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+</head>
+<body>
+  <div class="page">
+    <div class="page-shell">
+      <div class="page-header">
+        <div>
+          <h2>File Manager</h2>
+          <p>Dateiverwaltung direkt im Server-Datenordner. Du kannst wie in einem einfachen SFTP-Browser durch Ordner gehen, Dateien hochladen, Ordner anlegen, Einträge umbenennen, herunterladen und löschen.</p>
+        </div>
+        <div class="actions">
+          <button class="btn btn-ghost" type="button" onclick="refreshCurrent()">Aktualisieren</button>
+          <a class="btn-link" href="/admin">Zurück zum Admin</a>
+        </div>
+      </div>
+
+      <div class="workspace">
+        <div class="toolbar">
+          <div class="pathbar">
+            <div class="path-title">
+              <span>Aktueller Pfad</span>
+              <small id="root-label">/opt/suno</small>
+            </div>
+            <div class="breadcrumbs" id="breadcrumbs"></div>
+          </div>
+          <div class="right-tools">
+            <button class="btn btn-ghost" type="button" onclick="goUp()">Eine Ebene hoch</button>
+            <div class="status" id="status"></div>
+          </div>
+        </div>
+
+        <div class="main">
+          <aside class="sidebar">
+            <div class="panel">
+              <h3>Upload</h3>
+              <div class="drop-zone" id="drop-zone">
+                <input type="file" id="file-input" hidden>
+                <div class="drop-icon">+</div>
+                <div class="drop-label" id="drop-label">Datei <b>hierher ziehen</b> oder klicken</div>
+                <div class="meta" id="file-meta"></div>
+              </div>
+              <div class="field">
+                <label for="custom-name">Dateiname</label>
+                <input id="custom-name" type="text" placeholder="Leer lassen = Originalname">
+              </div>
+              <button class="btn btn-primary" type="button" id="upload-btn" style="width:100%;margin-top:14px;justify-content:center" onclick="uploadFile()">In aktuellen Ordner hochladen</button>
+              <div class="progress" id="progress">
+                <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+              </div>
+              <div class="meta" id="upload-limit">Server-Limit wird geladen...</div>
+            </div>
+
+            <div class="panel">
+              <h3>Ordner</h3>
+              <div class="field" style="margin-top:0">
+                <label for="folder-name">Neuer Ordnername</label>
+                <input id="folder-name" type="text" placeholder="z.B. backups">
+              </div>
+              <button class="btn btn-ghost" type="button" style="width:100%;margin-top:14px;justify-content:center" onclick="createFolder()">Ordner erstellen</button>
+            </div>
+
+            <div class="panel">
+              <h3>Hinweise</h3>
+              <div class="tips">
+                <div class="tip"><b>Scope:</b> Der File Manager arbeitet innerhalb des Server-Datenordners und lässt keine Pfade außerhalb zu.</div>
+                <div class="tip"><b>Löschen:</b> Ordner werden rekursiv entfernt. Vor dem Löschen fragt die Oberfläche immer nach.</div>
+                <div class="tip"><b>Editor:</b> YAML, HTML, JSON, JS, CSS und andere Textdateien kannst du direkt öffnen und speichern.</div>
+              </div>
+            </div>
+
+            <div class="panel" id="live-activity-panel" style="display:none">
+              <h3>Live Aktivität</h3>
+              <div class="live-list" id="live-activity-list">
+                <div style="color:var(--text4);font-size:11px">Aktive Sessions werden geladen...</div>
+              </div>
+            </div>
+          </aside>
+
+          <section class="content">
+            <div class="summary">
+              <div class="info" id="summary">Lade Dateiliste...</div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Typ</th>
+                    <th>Größe</th>
+                    <th>Geändert</th>
+                    <th>Aktionen</th>
+                  </tr>
+                </thead>
+                <tbody id="entries"></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="editor-overlay">
+    <div class="editor-modal">
+      <div class="editor-head">
+        <div class="editor-title">
+          <h3 id="editor-name">Datei Editor</h3>
+          <p id="editor-path"></p>
+        </div>
+        <div class="editor-actions">
+          <button class="btn btn-ghost" type="button" id="editor-format-btn" onclick="formatEditor()" style="display:none">Formatieren</button>
+          <button class="btn btn-ghost" type="button" onclick="closeEditor()">Schliessen</button>
+          <button class="btn btn-primary" type="button" id="editor-save-btn" onclick="saveEditor()">Speichern</button>
+        </div>
+      </div>
+      <div class="editor-meta"><span id="editor-meta">Editor bereit.</span><span class="editor-hint" id="editor-hint">VS Code Stil aktiv, wenn Editor geladen ist.</span></div>
+      <div class="editor-area">
+        <textarea class="editor-text" id="editor-text" spellcheck="false"></textarea>
+      </div>
+    </div>
+  </div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/selection/active-line.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/meta.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/css/css.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/xml/xml.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/htmlmixed/htmlmixed.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/yaml/yaml.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/markdown/markdown.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/shell/shell.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/sql/sql.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/clike/clike.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/php/php.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/go/go.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/rust/rust.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/toml/toml.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/properties/properties.min.js"></script>
+<script src="https://unpkg.com/prettier@3.3.3/standalone.js"></script>
+<script src="https://unpkg.com/prettier@3.3.3/plugins/babel.js"></script>
+<script src="https://unpkg.com/prettier@3.3.3/plugins/estree.js"></script>
+<script src="https://unpkg.com/prettier@3.3.3/plugins/html.js"></script>
+<script src="https://unpkg.com/prettier@3.3.3/plugins/postcss.js"></script>
+<script src="https://unpkg.com/prettier@3.3.3/plugins/markdown.js"></script>
+<script src="https://unpkg.com/prettier@3.3.3/plugins/yaml.js"></script>
+<script>
+var CURRENT_PATH="";
+var ROOT_LABEL="";
+var LIMIT_MB=null;
+var FILE=null;
+var DRAG_PATH="";
+var EDITOR_PATH="";
+var EDITOR_DIRTY=false;
+var INITIAL_PATH="";
+var PRESENCE_TIMER=null;
+var PRESENCE_INTERVAL_MS=15000;
+var AUTH_INFO=null;
+var FILE_ACTIVITY_TIMER=null;
+var CODE_EDITOR=null;
+var FILES_RUN_MODE=(window.__HEXTRA_FILES_EMBEDDED__===true||document.body.getAttribute("data-files-mode")==="embedded")?"embedded":"standalone";
+var FILES_STARTED=false;
+var EDITABLE_EXTENSIONS={".txt":1,".md":1,".markdown":1,".json":1,".yaml":1,".yml":1,".html":1,".htm":1,".css":1,".js":1,".mjs":1,".cjs":1,".ts":1,".tsx":1,".jsx":1,".xml":1,".csv":1,".ini":1,".cfg":1,".conf":1,".env":1,".toml":1,".py":1,".sh":1,".bat":1,".ps1":1,".log":1,".sql":1,".php":1,".rb":1,".java":1,".c":1,".cpp":1,".h":1,".hpp":1,".cs":1,".go":1,".rs":1};
+
+function $(id){return document.getElementById(id)}
+function safe(v){return String(v==null?"":v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}
+function status(msg,type){var el=$("status");el.textContent=msg||"";el.className="status"+(type?" "+type:"")}
+function fmtSize(bytes){var n=Number(bytes)||0;if(n<=0)return "-";if(n<1024)return n+" B";if(n<1024*1024)return(n/1024).toFixed(1)+" KB";if(n<1024*1024*1024)return(n/1024/1024).toFixed(1)+" MB";return(n/1024/1024/1024).toFixed(2)+" GB"}
+function fmtDate(v){if(!v)return"-";var d=new Date(v);if(isNaN(d))return v;return d.toLocaleString("de-DE")}
+function ext(path){var idx=String(path||"").lastIndexOf(".");return idx>=0?String(path).slice(idx).toLowerCase():""}
+function canEdit(path){return !!EDITABLE_EXTENSIONS[ext(path)]}
+function canPreview(path){var e=ext(path);return e===".html"||e===".htm"}
+function editorModeForPath(path){
+  var e=ext(path);
+  if(e===".js"||e===".mjs"||e===".cjs"||e===".json")return {name:"javascript",json:e===".json"};
+  if(e===".ts")return "text/typescript";
+  if(e===".tsx")return "text/typescript-jsx";
+  if(e===".jsx")return "jsx";
+  if(e===".css")return "css";
+  if(e===".html"||e===".htm")return "htmlmixed";
+  if(e===".xml"||e===".svg")return "xml";
+  if(e===".yaml"||e===".yml")return "yaml";
+  if(e===".md"||e===".markdown")return "markdown";
+  if(e===".py")return "python";
+  if(e===".sh"||e===".bat"||e===".ps1"||e===".env")return "shell";
+  if(e===".sql")return "sql";
+  if(e===".php")return "php";
+  if(e===".java")return "text/x-java";
+  if(e===".c")return "text/x-csrc";
+  if(e===".cpp"||e===".hpp"||e===".h")return "text/x-c++src";
+  if(e===".cs")return "text/x-csharp";
+  if(e===".go")return "go";
+  if(e===".rs")return "rust";
+  if(e===".toml")return "toml";
+  if(e===".ini"||e===".cfg"||e===".conf")return "properties";
+  return "text/plain";
+}
+function prettierParserForPath(path){
+  var e=ext(path);
+  if(e===".js"||e===".mjs"||e===".cjs"||e===".jsx")return "babel";
+  if(e===".ts"||e===".tsx")return "babel-ts";
+  if(e===".json")return "json";
+  if(e===".css")return "css";
+  if(e===".html"||e===".htm"||e===".xml"||e===".svg")return "html";
+  if(e===".yaml"||e===".yml")return "yaml";
+  if(e===".md"||e===".markdown")return "markdown";
+  return "";
+}
+function ensureCodeEditor(){
+  if(CODE_EDITOR||!window.CodeMirror)return CODE_EDITOR;
+  CODE_EDITOR=window.CodeMirror.fromTextArea($("editor-text"),{
+    lineNumbers:true,
+    mode:"text/plain",
+    indentUnit:2,
+    tabSize:2,
+    smartIndent:true,
+    indentWithTabs:false,
+    lineWrapping:false,
+    styleActiveLine:true,
+    autoCloseBrackets:true,
+    matchBrackets:true,
+    extraKeys:{
+      Tab:function(cm){
+        if(cm.somethingSelected()){cm.indentSelection("add");return}
+        cm.replaceSelection(Array(cm.getOption("indentUnit")+1).join(" "),"end");
+      },
+      "Shift-Tab":"indentLess"
+    }
+  });
+  CODE_EDITOR.on("change",function(){if(EDITOR_PATH)setEditorDirty(true)});
+  $("editor-hint").textContent="VS Code Stil aktiv. Strg+S speichert, Shift+Alt+F formatiert.";
+  return CODE_EDITOR;
+}
+function setEditorMode(path){var cm=ensureCodeEditor();if(cm)cm.setOption("mode",editorModeForPath(path))}
+function getEditorValue(){return CODE_EDITOR?CODE_EDITOR.getValue():$("editor-text").value}
+function setEditorValue(value){if(CODE_EDITOR){CODE_EDITOR.setValue(value||"");CODE_EDITOR.refresh()}else{$("editor-text").value=value||""}}
+function focusEditor(){if(CODE_EDITOR){CODE_EDITOR.refresh();CODE_EDITOR.focus()}else{$("editor-text").focus()}}
+function requireFileAccess(){return fetch("/auth/me",{credentials:"same-origin"}).then(function(r){if(!r.ok)throw 0;return r.json()}).then(function(d){var ok=d&&d.success&&((d.role==="admin"&&d.file_manager_access)||(d.role==="user"&&(d.access_files||d.domain_access)));if(!ok)throw 0;AUTH_INFO=d||null;INITIAL_PATH=(d&&d.file_access_default_path)||"";return d}).catch(function(){if(FILES_RUN_MODE!=="embedded")window.location.href="/login";throw 0})}
+function api(url,body){
+  return fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body||{})})
+    .then(function(r){return r.json().then(function(d){return{ok:r.ok,data:d}})})
+}
+function sendPresence(active){
+  var payload={active:active!==false,current_path:CURRENT_PATH||"",editor_path:EDITOR_PATH||"",editing:!!EDITOR_PATH};
+  return fetch("/files/presence",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload),keepalive:active===false}).catch(function(){});
+}
+function schedulePresence(){
+  if(PRESENCE_TIMER)clearInterval(PRESENCE_TIMER);
+  sendPresence(true);
+  PRESENCE_TIMER=setInterval(function(){sendPresence(true)},PRESENCE_INTERVAL_MS);
+}
+function renderLiveActivity(items){
+  var wrap=$("live-activity-panel"), list=$("live-activity-list");
+  if(!wrap||!list)return;
+  if(!(AUTH_INFO&&AUTH_INFO.role==="admin")){wrap.style.display="none";return}
+  wrap.style.display="block";
+  items=Array.isArray(items)?items:[];
+  if(!items.length){list.innerHTML='<div style="color:var(--text4);font-size:11px">Gerade ist niemand im File Manager aktiv.</div>';return}
+  list.innerHTML=items.map(function(item){
+    var role=item.role==="admin"?"Admin":"User";
+    var state=item.editing&&item.editor_path?("Bearbeitet: "+item.editor_path):(item.current_path?("Ordner: "+item.current_path):"Im Root");
+    var updated=item.updated_at?item.updated_at.substring(11,19):"-";
+    return '<div class="live-item"><b>'+safe(item.name||"-")+'</b><span>'+safe(role)+'</span><span>'+safe(state)+'</span><span>Aktiv zuletzt: '+safe(updated)+'</span></div>';
+  }).join("");
+}
+function loadLiveActivity(){
+  if(!(AUTH_INFO&&AUTH_INFO.role==="admin"))return;
+  api("/admin/file-activity",{}).then(function(resp){
+    var d=resp.data||{};
+    if(!d.success)return;
+    renderLiveActivity(d.sessions||[]);
+  }).catch(function(){});
+}
+function scheduleLiveActivity(){
+  if(!(AUTH_INFO&&AUTH_INFO.role==="admin"))return;
+  loadLiveActivity();
+  if(FILE_ACTIVITY_TIMER)clearInterval(FILE_ACTIVITY_TIMER);
+  FILE_ACTIVITY_TIMER=setInterval(loadLiveActivity,5000);
+}
+function setSelectedFile(file){
+  FILE=file||null;
+  $("drop-zone").classList.toggle("has-file",!!FILE);
+  if(FILE){
+    $("drop-label").innerHTML='Ausgewählt: <b>'+safe(FILE.name)+'</b>';
+    $("file-meta").textContent=fmtSize(FILE.size);
+    if(!$("custom-name").value.trim())$("custom-name").value=FILE.name;
+  }else{
+    $("drop-label").innerHTML='Datei <b>hierher ziehen</b> oder klicken';
+    $("file-meta").textContent="";
+    $("custom-name").value="";
+  }
+}
+function normalizeParent(path){
+  if(!path)return"";
+  var parts=path.split("/").filter(Boolean);
+  parts.pop();
+  return parts.join("/");
+}
+var ICON_FOLDER='<svg width="24" height="24" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><path d="M8.207 4c.46 0 .908.141 1.284.402l.156.12L12.022 6.5h7.728a2.25 2.25 0 0 1 2.229 1.938l.016.158.005.154v9a2.25 2.25 0 0 1-2.096 2.245L19.75 20H4.25a2.25 2.25 0 0 1-2.245-2.096L2 17.75V6.25a2.25 2.25 0 0 1 2.096-2.245L4.25 4h3.957Zm1.44 5.979a2.25 2.25 0 0 1-1.244.512l-.196.009-4.707-.001v7.251c0 .38.282.694.648.743l.102.007h15.5a.75.75 0 0 0 .743-.648l.007-.102v-9a.75.75 0 0 0-.648-.743L19.75 8h-7.729L9.647 9.979ZM8.207 5.5H4.25a.75.75 0 0 0-.743.648L3.5 6.25v2.749L8.207 9a.75.75 0 0 0 .395-.113l.085-.06 1.891-1.578-1.89-1.575a.75.75 0 0 0-.377-.167L8.207 5.5Z" fill="#E84B3C"/></svg>';
+var ICON_FILE='<svg width="24" height="24" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><path d="M18.5 20a.5.5 0 0 1-.5.5H6a.5.5 0 0 1-.5-.5V4a.5.5 0 0 1 .5-.5h6V8a2 2 0 0 0 2 2h4.5v10Zm-5-15.379L17.378 8.5H14a.5.5 0 0 1-.5-.5V4.621Zm5.914 3.793-5.829-5.828c-.026-.026-.058-.046-.085-.07a2.072 2.072 0 0 0-.219-.18c-.04-.027-.086-.045-.128-.068-.071-.04-.141-.084-.216-.116a1.977 1.977 0 0 0-.624-.138C12.266 2.011 12.22 2 12.172 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9.828a2 2 0 0 0-.586-1.414Z" fill="#E84B3C"/></svg>';
+var ICON_CLOUD='<svg width="24" height="24" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><path d="M6.087 9.75a5.752 5.752 0 0 1 11.326 0h.087a4 4 0 0 1 0 8H6a4 4 0 0 1 0-8h.087ZM11.75 6.5a4.25 4.25 0 0 0-4.245 4.037.75.75 0 0 1-.749.713H6a2.5 2.5 0 0 0 0 5h11.5a2.5 2.5 0 0 0 0-5h-.756a.75.75 0 0 1-.75-.713A4.25 4.25 0 0 0 11.75 6.5Z" fill="#E84B3C"/></svg>';
+var ICON_DOWNLOAD='<svg class="action-icon-svg" width="12" height="12" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><path d="M12 3.75a.75.75 0 0 1 .75.75v8.69l2.72-2.72a.75.75 0 1 1 1.06 1.06l-4 4a.75.75 0 0 1-1.06 0l-4-4a.75.75 0 1 1 1.06-1.06l2.72 2.72V4.5a.75.75 0 0 1 .75-.75ZM5.75 17a.75.75 0 0 1 .75.75v1a.5.5 0 0 0 .5.5h10a.5.5 0 0 0 .5-.5v-1a.75.75 0 0 1 1.5 0v1A2 2 0 0 1 17 20.75H7a2 2 0 0 1-2-2v-1a.75.75 0 0 1 .75-.75Z" fill="currentColor"/></svg>';
+function imageIcon(svg,cls,alt){
+  return '<span class="entry-icon '+safe(cls||'')+'" aria-label="'+safe(alt||'')+'" title="'+safe(alt||'')+'">'+svg+'</span>';
+}
+function iconMarkup(entry){
+  if(!entry)return imageIcon(ICON_FILE,'file','Datei');
+  if(entry.type==="dir"){
+    if((entry.name||'').toLowerCase()==='cloud' || (entry.path||'').toLowerCase()==='cloud'){
+      return imageIcon(ICON_CLOUD,'cloud','Cloud');
+    }
+    return imageIcon(ICON_FOLDER,'folder','Ordner');
+  }
+  return imageIcon(ICON_FILE,'file','Datei');
+}
+function quote(v){return String(v==null?"":v).replace(/\\/g,"\\\\").replace(/'/g,"\\'")}
+function renderBreadcrumbs(items){
+  $("breadcrumbs").innerHTML=(items||[]).map(function(item,idx,arr){
+    return '<button class="crumb'+(idx===arr.length-1?' active':'')+'" type="button" onclick="openPath(\''+quote(item.path)+'\')" ondragover="dragOverTarget(event,\''+quote(item.path)+'\')" ondragleave="dragLeaveTarget(event)" ondrop="dropOnTarget(event,\''+quote(item.path)+'\')">'+safe(item.name)+'</button>';
+  }).join("");
+}
+function renderEntries(entries){
+  entries=Array.isArray(entries)?entries:[];
+  $("summary").textContent=entries.length+" Einträge in "+(CURRENT_PATH?("/"+CURRENT_PATH):"/");
+  if(!entries.length){
+    $("entries").innerHTML='<tr><td colspan="5" class="empty">Dieser Ordner ist leer.</td></tr>';
+    return;
+  }
+  $("entries").innerHTML=entries.map(function(entry){
+    var openBtn=entry.type==="dir"
+      ? '<button class="mini btn btn-ghost" type="button" onclick="openPath(\''+quote(entry.path)+'\')">Öffnen</button>'
+      : '<a class="mini btn-link" href="'+safe(entry.download_url)+'">'+ICON_DOWNLOAD+'Download</a>';
+    var editBtn=entry.type==="file"&&canEdit(entry.path)
+      ? '<button class="mini btn btn-ghost" type="button" onclick="openEditor(\''+quote(entry.path)+'\')">Edit</button>'
+      : '';
+    var previewBtn=entry.type==="file"&&canPreview(entry.path)
+      ? '<button class="mini btn btn-ghost" type="button" onclick="openPreview(\''+quote(entry.path)+'\')">Preview</button>'
+      : '';
+    var rowClass='drag-row'+(entry.type==="dir"?' folder-row':'');
+    var rowAttrs=' draggable="true" ondragstart="dragStartPath(event,\''+quote(entry.path)+'\')" ondragend="dragEndPath()"';
+    if(entry.type==="dir"){
+      rowAttrs+=' ondragover="dragOverTarget(event,\''+quote(entry.path)+'\')" ondragleave="dragLeaveTarget(event)" ondrop="dropOnTarget(event,\''+quote(entry.path)+'\')"';
+    }
+    return '<tr class="'+rowClass+'"'+rowAttrs+'>'
+      +'<td><div class="entry-main">'+iconMarkup(entry)+'<div><button class="entry-btn '+(entry.type==="dir"?"folder":"")+'" type="button" onclick="'+(entry.type==="dir"?"openPath('"+quote(entry.path)+"')":"")+'">'+safe(entry.name)+'</button></div></div></td>'
+      +'<td><span class="entry-type '+safe(entry.type)+'">'+(entry.type==="dir"?"Ordner":"Datei")+'</span></td>'
+      +'<td>'+safe(fmtSize(entry.size))+'</td>'
+      +'<td>'+safe(fmtDate(entry.modified))+'</td>'
+      +'<td><div class="row-actions">'+openBtn+previewBtn+editBtn+'<button class="mini btn btn-ghost" type="button" onclick="renameEntry(\''+quote(entry.path)+'\',\''+quote(entry.name)+'\')">Umbenennen</button><button class="mini btn btn-danger" type="button" onclick="deleteEntry(\''+quote(entry.path)+'\',\''+quote(entry.type)+'\')">Löschen</button></div></td>'
+      +'</tr>';
+  }).join("");
+}
+function openPreview(path){
+  status("Preview-Link wird erstellt...","load");
+  api("/files/preview-token",{target:path}).then(function(resp){
+    var d=resp.data||{};
+    if(!d.success||!d.url){status(d.message||"Preview konnte nicht erstellt werden","err");return}
+    var w=window.open(d.url,"_blank","noopener,noreferrer");
+    if(!w){status("Preview wurde vom Browser blockiert. Bitte Pop-ups für diese Seite erlauben.","err");return}
+    status("HTML-Preview geöffnet.","ok");
+  }).catch(function(){status("Server nicht erreichbar","err")});
+}
+function setEditorDirty(next){
+  EDITOR_DIRTY=!!next;
+  if(EDITOR_DIRTY){$("editor-meta").textContent="Ungespeicherte Änderungen.";}
+}
+async function formatEditor(){
+  if(!EDITOR_PATH)return;
+  var parser=prettierParserForPath(EDITOR_PATH);
+  if(!parser){status("Für diesen Dateityp ist keine automatische Formatierung verfügbar.","err");return}
+  if(!window.prettier){status("Formatierer konnte nicht geladen werden.","err");return}
+  try{
+    var formatted=await window.prettier.format(getEditorValue(),{
+      parser:parser,
+      plugins:(window.prettierPlugins||[]),
+      tabWidth:2,
+      useTabs:false,
+      printWidth:100,
+      htmlWhitespaceSensitivity:"css",
+      bracketSpacing:true,
+      singleQuote:false
+    });
+    setEditorValue(formatted);
+    setEditorDirty(true);
+    $("editor-meta").textContent="Datei formatiert. Noch nicht gespeichert.";
+    focusEditor();
+    status("Datei formatiert.","ok");
+  }catch(err){
+    status("Formatierung fehlgeschlagen: "+((err&&err.message)||"Unbekannter Fehler"),"err");
+  }
+}
+function openEditor(path){
+  status("Datei wird im Editor geladen...","load");
+  api("/files/read",{target:path}).then(function(resp){
+    var d=resp.data||{};
+    if(!d.success){status(d.message||"Datei konnte nicht geladen werden","err");return}
+    EDITOR_PATH=d.path||path;
+    ensureCodeEditor();
+    setEditorMode(EDITOR_PATH);
+    $("editor-name").textContent=d.name||"Datei Editor";
+    $("editor-path").textContent=d.path||path;
+    setEditorValue(d.content||"");
+    $("editor-meta").textContent="Typ "+(d.extension||ext(path)||"-")+" · "+fmtSize(d.size)+" · Limit "+(d.limit_mb||"-")+" MB";
+    $("editor-format-btn").style.display=prettierParserForPath(EDITOR_PATH)?"inline-flex":"none";
+    $("editor-overlay").classList.add("open");
+    EDITOR_DIRTY=false;
+    focusEditor();
+    sendPresence(true);
+    status("","")
+  }).catch(function(){status("Server nicht erreichbar","err")});
+}
+function closeEditor(){
+  if(EDITOR_DIRTY&&!confirm("Ungespeicherte Änderungen verwerfen?"))return;
+  $("editor-overlay").classList.remove("open");
+  EDITOR_PATH="";
+  setEditorValue("");
+  EDITOR_DIRTY=false;
+  $("editor-meta").textContent="Editor bereit.";
+  sendPresence(true);
+}
+function saveEditor(){
+  if(!EDITOR_PATH)return;
+  var btn=$("editor-save-btn");
+  btn.disabled=true;
+  btn.textContent="Speichern...";
+  status("Datei wird gespeichert...","load");
+  api("/files/save",{target:EDITOR_PATH,content:getEditorValue()}).then(function(resp){
+    var d=resp.data||{};
+    if(!d.success){status(d.message||"Speichern fehlgeschlagen","err");return}
+    EDITOR_DIRTY=false;
+    $("editor-meta").textContent="Gespeichert · "+fmtDate(d.modified)+" · "+fmtSize(d.size);
+    status("Datei gespeichert.","ok");
+    refreshCurrent();
+  }).catch(function(){status("Server nicht erreichbar","err")}).finally(function(){
+    btn.disabled=false;
+    btn.textContent="Speichern";
+  });
+}
+function clearDropHover(){
+  Array.prototype.forEach.call(document.querySelectorAll(".drop-hover"),function(el){el.classList.remove("drop-hover")});
+}
+function dragStartPath(e,path){
+  DRAG_PATH=path||"";
+  if(e&&e.dataTransfer){
+    e.dataTransfer.effectAllowed="move";
+    try{e.dataTransfer.setData("text/plain",DRAG_PATH)}catch(_){}
+  }
+  var row=e&&e.currentTarget;
+  if(row)row.classList.add("dragging");
+}
+function dragEndPath(){
+  DRAG_PATH="";
+  clearDropHover();
+  Array.prototype.forEach.call(document.querySelectorAll(".dragging"),function(el){el.classList.remove("dragging")});
+}
+function dragOverTarget(e,targetPath){
+  if(!DRAG_PATH||DRAG_PATH===targetPath)return;
+  e.preventDefault();
+  if(e.dataTransfer)e.dataTransfer.dropEffect="move";
+  clearDropHover();
+  var el=e.currentTarget;
+  if(el)el.classList.add("drop-hover");
+}
+function dragLeaveTarget(e){
+  var el=e.currentTarget;
+  if(el)el.classList.remove("drop-hover");
+}
+function dropOnTarget(e,targetPath){
+  e.preventDefault();
+  var el=e.currentTarget;
+  if(el)el.classList.remove("drop-hover");
+  var source=DRAG_PATH;
+  if(!source||source===targetPath)return;
+  moveEntry(source,targetPath);
+}
+function moveEntry(source,targetPath){
+  status("Eintrag wird verschoben...","load");
+  api("/files/move",{target:source,destination:targetPath||""}).then(function(resp){
+    var d=resp.data||{};
+    if(!d.success){status(d.message||"Verschieben fehlgeschlagen","err");return}
+    status("Eintrag verschoben.","ok");
+    refreshCurrent();
+  }).catch(function(){status("Server nicht erreichbar","err")}).finally(function(){dragEndPath()});
+}
+function openPath(path){
+  CURRENT_PATH=path||"";
+  status("Ordner wird geladen...","load");
+  api("/files/list",{path:CURRENT_PATH}).then(function(resp){
+    var d=resp.data||{};
+    if(!d.success){status(d.message||"Ordner konnte nicht geladen werden","err");return}
+    CURRENT_PATH=d.path||"";
+    ROOT_LABEL=d.root||ROOT_LABEL||"/opt/suno";
+    LIMIT_MB=d.limit_mb||LIMIT_MB;
+    $("root-label").textContent=ROOT_LABEL;
+    $("upload-limit").textContent="Max. "+(LIMIT_MB||"-")+" MB pro Datei";
+    renderBreadcrumbs(d.breadcrumbs||[]);
+    renderEntries(d.entries||[]);
+    sendPresence(true);
+    status("","")
+  }).catch(function(){status("Server nicht erreichbar","err")});
+}
+function refreshCurrent(){openPath(CURRENT_PATH)}
+function goUp(){openPath(normalizeParent(CURRENT_PATH))}
+function createFolder(){
+  var name=$("folder-name").value.trim();
+  if(!name){status("Bitte einen Ordnernamen eingeben.","err");return}
+  status("Ordner wird erstellt...","load");
+  api("/files/create-folder",{path:CURRENT_PATH,name:name}).then(function(resp){
+    var d=resp.data||{};
+    if(!d.success){status(d.message||"Ordner konnte nicht erstellt werden","err");return}
+    $("folder-name").value="";
+    status("Ordner erstellt.","ok");
+    refreshCurrent();
+  }).catch(function(){status("Server nicht erreichbar","err")});
+}
+function renameEntry(path,name){
+  var next=prompt("Neuer Name für '"+name+"':",name);
+  if(next==null)return;
+  next=next.trim();
+  if(!next||next===name)return;
+  status("Eintrag wird umbenannt...","load");
+  api("/files/rename",{target:path,name:next}).then(function(resp){
+    var d=resp.data||{};
+    if(!d.success){status(d.message||"Umbenennen fehlgeschlagen","err");return}
+    status("Eintrag umbenannt.","ok");
+    refreshCurrent();
+  }).catch(function(){status("Server nicht erreichbar","err")});
+}
+function deleteEntry(path,type){
+  var text=type==="dir"?"Diesen Ordner inklusive Inhalt wirklich löschen?":"Diese Datei wirklich löschen?";
+  if(!confirm(text))return;
+  status("Eintrag wird gelöscht...","load");
+  api("/files/delete",{target:path}).then(function(resp){
+    var d=resp.data||{};
+    if(!d.success){status(d.message||"Löschen fehlgeschlagen","err");return}
+    status("Eintrag gelöscht.","ok");
+    refreshCurrent();
+  }).catch(function(){status("Server nicht erreichbar","err")});
+}
+function uploadFile(){
+  if(!FILE){status("Bitte zuerst eine Datei auswählen.","err");return}
+  var uploadBtn=$("upload-btn");
+  var name=$("custom-name").value.trim();
+  var form=new FormData();
+  form.append("path",CURRENT_PATH);
+  if(name&&name!==FILE.name)form.append("file",new Blob([FILE],{type:FILE.type||"application/octet-stream"}),name);else form.append("file",FILE);
+  uploadBtn.disabled=true;
+  uploadBtn.textContent="Hochladen...";
+  $("progress").style.display="block";
+  $("progress-fill").style.width="0%";
+  status("Upload läuft...","load");
+  var xhr=new XMLHttpRequest();
+  xhr.upload.onprogress=function(e){if(e.lengthComputable)$("progress-fill").style.width=Math.round(e.loaded/e.total*100)+"%"};
+  xhr.onload=function(){
+    uploadBtn.disabled=false;
+    uploadBtn.textContent="In aktuellen Ordner hochladen";
+    $("progress").style.display="none";
+    var d=null;try{d=JSON.parse(xhr.responseText)}catch(e){}
+    if(xhr.status===413){status((d&&d.message)||"Datei zu gross.","err");return}
+    if(!d||!d.success){status((d&&d.message)||("Server-Fehler ("+xhr.status+")"),"err");return}
+    setSelectedFile(null);
+    status("Datei hochgeladen.","ok");
+    refreshCurrent();
+  };
+  xhr.onerror=function(){
+    uploadBtn.disabled=false;
+    uploadBtn.textContent="In aktuellen Ordner hochladen";
+    $("progress").style.display="none";
+    status("Upload fehlgeschlagen.","err");
+  };
+  xhr.open("POST","/files/upload");
+  xhr.send(form);
+}
+function mountFilesApp(options){
+  options=options||{};
+  FILES_RUN_MODE=options.mode||(options.embedded?"embedded":FILES_RUN_MODE||"standalone");
+  if(options.initialPath!=null)INITIAL_PATH=options.initialPath;
+  if(FILES_STARTED){
+    openPath(CURRENT_PATH||INITIAL_PATH||"");
+    schedulePresence();
+    scheduleLiveActivity();
+    return;
+  }
+  FILES_STARTED=true;
+  requireFileAccess().then(function(){openPath(INITIAL_PATH||"");schedulePresence();scheduleLiveActivity()}).catch(function(){});
+  var zone=$("drop-zone"), input=$("file-input");
+  zone.addEventListener("click",function(){input.click()});
+  input.addEventListener("change",function(){setSelectedFile(input.files&&input.files[0])});
+  ["dragenter","dragover"].forEach(function(ev){zone.addEventListener(ev,function(e){e.preventDefault();zone.classList.add("drag")})});
+  ["dragleave","dragend"].forEach(function(ev){zone.addEventListener(ev,function(e){e.preventDefault();zone.classList.remove("drag")})});
+  zone.addEventListener("drop",function(e){e.preventDefault();zone.classList.remove("drag");var file=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];if(file)setSelectedFile(file)});
+  $("editor-text").addEventListener("input",function(){if(EDITOR_PATH&&!CODE_EDITOR)setEditorDirty(true)});
+  $("editor-overlay").addEventListener("click",function(e){if(e.target===this)closeEditor()});
+  window.addEventListener("pagehide",function(){sendPresence(false)});
+  window.addEventListener("beforeunload",function(){sendPresence(false)});
+  window.addEventListener("keydown",function(e){
+    if(!$("editor-overlay").classList.contains("open"))return;
+    if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="s"){e.preventDefault();saveEditor();return}
+    if(e.shiftKey&&e.altKey&&e.key.toLowerCase()==="f"){e.preventDefault();formatEditor();return}
+    if(e.key==="Escape"){e.preventDefault();closeEditor()}
+  });
+}
+window.FilesApp={mount:mountFilesApp,refresh:refreshCurrent,openPath:openPath,closeEditor:closeEditor};
+window.initFilesPage=mountFilesApp;
+if(FILES_RUN_MODE!=="embedded")mountFilesApp({mode:"standalone"});
+</script>
+</body>
+</html>
+
+
+

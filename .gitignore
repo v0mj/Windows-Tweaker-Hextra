@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# Backups and scratch
+*.bak*
+hardening_changes.patch
+pyarmor.bug.log
+
+# Build output
+build-*/
+dist-*/
+obf-suno/
+
+# Archives and binaries
+*.zip
+*.7z
+*.exe
+*.part
+
+# Source packages / vendor archives
+source_packages/
+
+# Server runtime data (use .env.example as template, do not commit live data)
+server/keys.json
+server/audit.json
+server/launches.json
+server/crashes/
+server/updates/
+server/admin_backup.html
+
+# Secrets / environment
+.env
+.secret_key
+
+# Concept / design scratchpads (large HTML prototypes)
+SunoTweaker idea.html
+Hextra compact nav concept.html
+
+# PyInstaller spec (legacy single-file build)
+SunoTweaker-unobfuscated.spec
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*~
