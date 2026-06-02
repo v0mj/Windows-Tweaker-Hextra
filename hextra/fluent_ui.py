@@ -25,7 +25,7 @@ from qfluentwidgets import (
     SmoothScrollArea, ToggleButton, setThemeColor, Theme, setTheme
 )
 
-# Import business logic from legacy
+
 from .legacy import (
     _boot, _ensure_elevated_start, load_data, save_data,
     load_auth, save_auth, client_login, client_status, account_has_active_plan,
@@ -203,13 +203,13 @@ class OverviewInterface(ScrollArea):
         root.setContentsMargins(28, 28, 28, 28)
         root.setSpacing(20)
 
-        # ── Header ──
+
         self.title = TitleLabel("System Overview")
         root.addWidget(self.title)
         self.subtitle = BodyLabel("Monitor live stats and control performance from one place.")
         root.addWidget(self.subtitle)
 
-        # ── Telemetry Rings ──
+
         ring_row = QHBoxLayout()
         ring_row.setSpacing(16)
         self.cpu_card = _RingCard("CPU")
@@ -221,11 +221,11 @@ class OverviewInterface(ScrollArea):
         ring_row.addStretch()
         root.addLayout(ring_row)
 
-        # ── Info Cards Row ──
+
         info_row = QHBoxLayout()
         info_row.setSpacing(16)
 
-        # System Snapshot
+
         sys_card = CardWidget(self)
         sys_ly = QVBoxLayout(sys_card)
         sys_ly.setContentsMargins(16, 14, 16, 14)
@@ -235,7 +235,7 @@ class OverviewInterface(ScrollArea):
         sys_ly.addWidget(_InfoRow("User", os.environ.get("USERNAME", "N/A")))
         info_row.addWidget(sys_card, 1)
 
-        # Hardware
+
         hw_card = CardWidget(self)
         hw_ly = QVBoxLayout(hw_card)
         hw_ly.setContentsMargins(16, 14, 16, 14)
@@ -248,7 +248,7 @@ class OverviewInterface(ScrollArea):
 
         root.addLayout(info_row)
 
-        # ── Live Telemetry Card ──
+
         live_card = CardWidget(self)
         live_ly = QVBoxLayout(live_card)
         live_ly.setContentsMargins(16, 14, 16, 14)
@@ -262,7 +262,7 @@ class OverviewInterface(ScrollArea):
 
         root.addStretch()
 
-        # ── Timers ──
+
         self._net_prev = psutil.net_io_counters()
         self._net_prev_ts = time.time()
         start_gpu_sampler()
@@ -300,44 +300,44 @@ class TweakInterface(ScrollArea):
         self.category = category
         self.setObjectName(f"TweakInterface_{category}")
         self.setWidgetResizable(True)
-        
+
         self.view = QWidget()
         self.setWidget(self.view)
-        
+
         self.layout = QVBoxLayout(self.view)
         self.layout.setContentsMargins(24, 24, 24, 24)
-        
+
         self.title = TitleLabel(category)
         self.layout.addWidget(self.title)
-        
+
         self.card_layout = QVBoxLayout()
-        
+
         self.switches = {}
         entries = category_entries(category)
         selected = load_selected_tweaks()
-        
+
         for entry in entries:
             card = CardWidget(self)
             card_ly = QHBoxLayout(card)
-            
+
             info_ly = QVBoxLayout()
             name_lbl = BodyLabel(entry["name"])
             desc_lbl = CaptionLabel(entry.get("desc", ""))
-            
+
             info_ly.addWidget(name_lbl)
             info_ly.addWidget(desc_lbl)
-            
+
             switch = SwitchButton(self)
             switch.setChecked(entry["id"] in selected)
             switch.checkedChanged.connect(lambda checked, e=entry: self.on_tweak_toggled(e, checked))
             self.switches[entry["id"]] = switch
-            
+
             card_ly.addLayout(info_ly)
             card_ly.addStretch()
             card_ly.addWidget(switch)
-            
+
             self.card_layout.addWidget(card)
-            
+
         self.layout.addLayout(self.card_layout)
         self.layout.addStretch()
 
@@ -736,19 +736,19 @@ class HextraFluentWindow(FluentWindow):
     def __init__(self):
         super().__init__()
         self.initWindow()
-        
-        # Interfaces
+
+
         self.overview_interface = OverviewInterface(self)
         self.addSubInterface(self.overview_interface, FIF.HOME, "Overview")
-        
-        # Performance
+
+
         self.fps_interface = TweakInterface("FPS Boost", self)
         self.cpu_interface = TweakInterface("CPU", self)
         self.gpu_interface = TweakInterface("GPU", self)
         self.ram_interface = TweakInterface("RAM", self)
         self.input_interface = TweakInterface("Input", self)
         self.network_interface = TweakInterface("Network", self)
-        
+
         self.navigationInterface.addSeparator()
         self.addSubInterface(self.fps_interface, FIF.SPEED_OFF, "FPS Boost", position=NavigationItemPosition.SCROLL)
         self.addSubInterface(self.cpu_interface, FIF.DEVELOPER_TOOLS, "CPU", position=NavigationItemPosition.SCROLL)
@@ -756,47 +756,47 @@ class HextraFluentWindow(FluentWindow):
         self.addSubInterface(self.ram_interface, FIF.APPLICATION, "RAM", position=NavigationItemPosition.SCROLL)
         self.addSubInterface(self.input_interface, FIF.EXPRESSIVE_INPUT_ENTRY, "Input", position=NavigationItemPosition.SCROLL)
         self.addSubInterface(self.network_interface, FIF.WIFI, "Network", position=NavigationItemPosition.SCROLL)
-        
-        # System
+
+
         self.privacy_interface = TweakInterface("Privacy", self)
         self.debloat_interface = TweakInterface("Debloat", self)
         self.services_interface = TweakInterface("Services", self)
-        
+
         self.navigationInterface.addSeparator()
         self.addSubInterface(self.privacy_interface, FIF.CERTIFICATE, "Privacy", position=NavigationItemPosition.SCROLL)
         self.addSubInterface(self.debloat_interface, FIF.DELETE, "Debloat", position=NavigationItemPosition.SCROLL)
         self.addSubInterface(self.services_interface, FIF.SETTING, "Services", position=NavigationItemPosition.SCROLL)
 
-        # Games
+
         self.games_interface = GamesInterface(self)
         self.navigationInterface.addSeparator()
         self.addSubInterface(self.games_interface, FIF.GAME, "Games", position=NavigationItemPosition.SCROLL)
 
-        # Tools
+
         self.presets_interface = PresetsInterface(self)
         self.quick_tools_interface = QuickToolsInterface(self)
         self.restore_interface = RestoreInterface(self)
         self.settings_interface = SettingsInterface(self)
         self.account_interface = AccountInterface(self)
-        
+
         self.addSubInterface(self.presets_interface, FIF.FOLDER, "Presets", position=NavigationItemPosition.BOTTOM)
         self.addSubInterface(self.quick_tools_interface, FIF.LAYOUT, "Quick Tools", position=NavigationItemPosition.BOTTOM)
         self.addSubInterface(self.restore_interface, FIF.HISTORY, "Restore", position=NavigationItemPosition.BOTTOM)
         self.addSubInterface(self.settings_interface, FIF.SETTING, "Settings", position=NavigationItemPosition.BOTTOM)
         self.addSubInterface(self.account_interface, FIF.PEOPLE, "Account", position=NavigationItemPosition.BOTTOM)
-        
-        
+
+
 
     def initWindow(self):
         self.resize(1180, 760)
         self.setMinimumSize(1060, 680)
         self.setWindowTitle('Hextra')
-        
+
         d = load_data()
         accent = d.get("color", "#e60000")
         if accent != "rainbow":
             setThemeColor(accent)
-            
+
         setTheme(Theme.DARK)
 
 def main():
