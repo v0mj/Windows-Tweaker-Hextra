@@ -24,14 +24,6 @@ obf-suno/
 # Source packages / vendor archives
 source_packages/
 
-# Server runtime data (use .env.example as template, do not commit live data)
-server/keys.json
-server/audit.json
-server/launches.json
-server/crashes/
-server/updates/
-server/admin_backup.html
-
 # Secrets / environment
 .env
 .secret_key

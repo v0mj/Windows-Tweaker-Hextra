@@ -1,4 +1,4 @@
-"""Authentication, account state, and device identity helpers."""
+"""Local session and compatibility helpers."""
 
 from .legacy import (
     _account_days_left_text,
@@ -19,4 +19,3 @@ __all__ = [
     "load_auth",
     "save_auth",
 ]
-

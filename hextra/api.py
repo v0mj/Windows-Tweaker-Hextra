@@ -1,4 +1,4 @@
-"""Backend API and update helpers."""
+"""Local/offline compatibility helpers."""
 
 from .legacy import (
     UPDATE_CHECK_INTERVAL_MS,
@@ -55,4 +55,3 @@ __all__ = [
     "client_register",
     "client_status",
 ]
-

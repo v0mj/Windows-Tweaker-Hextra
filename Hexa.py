@@ -7,10 +7,35 @@ has to grow as one giant file.
 import ctypes
 import os
 
-from hextra.main import run
-
-
 APP_USER_MODEL_ID = "Hextra.kHrzA.v2"
+
+
+def _suppress_initial_window():
+    if os.name != "nt":
+        return
+    try:
+        ctypes.windll.user32.ShowWindow(ctypes.windll.kernel32.GetConsoleWindow(), 0)
+    except Exception:
+        pass
+    try:
+        import ctypes.wintypes
+
+        sw_hide = 0
+        startf_use_showwindow = 0x00000001
+        startup = ctypes.wintypes.STARTUPINFOW()
+        startup.cb = ctypes.sizeof(startup)
+        ctypes.windll.kernel32.GetStartupInfoW(ctypes.byref(startup))
+        if not (startup.dwFlags & startf_use_showwindow and startup.wShowWindow == sw_hide):
+            hwnd = ctypes.windll.kernel32.GetConsoleWindow()
+            if hwnd:
+                ctypes.windll.user32.ShowWindow(hwnd, 0)
+    except Exception:
+        pass
+
+
+_suppress_initial_window()
+
+from hextra.main import run
 
 
 def _prepare_windows_process():

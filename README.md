@@ -1,70 +1,68 @@
 # Hextra
 
-A Windows desktop tweaker application with a license-gated backend server.
+Hextra is an offline Windows desktop tweaker for performance, gaming, cleanup, restore points, presets, and quick system tools.
+
+The project is now local-first and open-source friendly:
+
+- no license server
+- no login requirement
+- no reseller backend
+- no online update backend
+- no cloud account storage
 
 ## Project Structure
 
-```
+```text
 Hextra/
-├── hextra/               # Core application package (PySide6 UI + tweak logic)
+├── hextra/
 │   ├── __init__.py
-│   ├── main.py           # Entrypoint wiring
-│   ├── legacy.py         # Full application core (tweaks, UI, workers)
-│   ├── api.py            # Backend API & update helpers (re-exports)
-│   ├── auth.py           # Auth, account state, HWID helpers (re-exports)
-│   ├── ops.py            # Tweak catalogue, profiles, state (re-exports)
-│   ├── ui.py             # UI shell, pages, dialogs, widgets (re-exports)
-│   └── workers.py        # QThread workers (re-exports)
-├── icons/                # UI icon assets (PNG/WebP)
-├── replica_ui/           # VAX-style shell redesign workspace
-│   ├── tokens.py         # Design tokens / colour palette
-│   └── README.md
-├── server/               # Flask license server backend
-│   ├── server.py         # Main server (keys, admin panel, updates, crashes)
-│   ├── admin.html        # Admin panel frontend
-│   ├── login.html        # Shared admin/reseller login page
-│   ├── reseller.html     # Reseller dashboard
-│   ├── update.html       # Update management page
-│   ├── files.html        # File manager page
-│   └── .env.example      # Environment variable reference
-├── Hexa.py               # Application launcher
-├── HextraBootstrapper.py # Tkinter bootstrapper (downloads latest build)
-├── build_hextra_nuitka.bat         # Build Hextra.exe with Nuitka
-├── build_hextra_bootstrapper.bat   # Build HextraBootstrapper.exe with Nuitka
-├── hextra.ico            # Application icon
+│   ├── main.py        # application entrypoint
+│   ├── legacy.py      # main UI, tweak logic, workers, local state
+│   ├── api.py         # local/offline compatibility helpers
+│   ├── auth.py        # local session compatibility helpers
+│   ├── ops.py         # tweak catalogue and state re-exports
+│   ├── ui.py          # UI re-exports
+│   └── workers.py     # worker re-exports
+├── icons/             # UI icon assets
+├── replica_ui/        # design tokens and UI references
+├── Hexa.py            # launcher
+├── build_hextra_nuitka.bat
+├── hextra.ico
 └── .gitignore
 ```
 
 ## Requirements
 
-**Client (Hextra)**
+- Windows 10/11
 - Python 3.11+
-- PySide6
-- pywin32 (Windows DPAPI auth storage)
+- PyQt6
 - psutil
 
-**Server**
-- Python 3.11+
-- Flask, Werkzeug
-
-Install server dependencies:
-```
-pip install flask werkzeug
-```
-
-## Server Setup
-
-1. Copy `server/.env.example` to `server/.env` and fill in the values.
-2. Run `python server/server.py` (or deploy behind a reverse proxy with gunicorn/uvicorn).
-
-## Building
+Install dependencies:
 
 ```bat
-# Build main Hextra.exe
-build_hextra_nuitka.bat
-
-# Build HextraBootstrapper.exe
-build_hextra_bootstrapper.bat
+python -m pip install -r requirements.txt
 ```
 
-> **Note:** Bump `VERSION` in `hextra/legacy.py` before building a release.
+## Run From Source
+
+```bat
+python Hexa.py
+```
+
+## Build
+
+```bat
+build_hextra_nuitka.bat
+```
+
+> Bump `VERSION` in `hextra/legacy.py` before building a release.
+
+## Local Data
+
+Hextra stores local settings in the current user's home folder:
+
+- `hextra_save.json`
+- `hextra_auth.json` from older builds may be removed automatically when local mode is used
+
+No backend is required to run or build the app.

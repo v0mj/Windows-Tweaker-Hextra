@@ -1,4 +1,4 @@
-﻿import sys, subprocess, os, json, platform, traceback, ctypes, math, time, importlib.util, tempfile, base64, shutil
+import sys, subprocess, os, json, platform, traceback, ctypes, math, time, importlib.util, tempfile, base64, shutil
 import csv, threading, re
 import hashlib
 from collections import deque
@@ -23,6 +23,11 @@ def _is_frozen_build():
 APP_USER_MODEL_ID = "Hextra.kHrzA.v2"
 VERSION = "1.1.0"
 UPDATE_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000
+OFFLINE_MODE = True
+LOCAL_USERNAME = "local"
+LOCAL_EMAIL = "local@hextra"
+LOCAL_SESSION_TOKEN = "offline-local-session"
+LOCAL_PLAN_DAYS = 3650
 
 def _consume_update_cleanup_args():
     paths = []
@@ -141,9 +146,15 @@ def _launch_elevated_via_powershell(target, argv, workdir):
         "-Verb RunAs "
         f"-ArgumentList @({arg_list})"
     )
+    startupinfo = None
+    if os.name == "nt":
+        startupinfo = subprocess.STARTUPINFO()
+        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        startupinfo.wShowWindow = 0
     completed = subprocess.run(
         ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", command],
         creationflags=creationflags,
+        startupinfo=startupinfo,
         timeout=20,
         check=False,
     )
@@ -154,6 +165,28 @@ def _launch_elevated_instance(skip_login=False):
     if os.name != "nt":
         return False
     try:
+        class SHELLEXECUTEINFOW(ctypes.Structure):
+            _fields_ = [
+                ("cbSize", ctypes.c_ulong),
+                ("fMask", ctypes.c_ulong),
+                ("hwnd", ctypes.c_void_p),
+                ("lpVerb", ctypes.c_wchar_p),
+                ("lpFile", ctypes.c_wchar_p),
+                ("lpParameters", ctypes.c_wchar_p),
+                ("lpDirectory", ctypes.c_wchar_p),
+                ("nShow", ctypes.c_int),
+                ("hInstApp", ctypes.c_void_p),
+                ("lpIDList", ctypes.c_void_p),
+                ("lpClass", ctypes.c_wchar_p),
+                ("hkeyClass", ctypes.c_void_p),
+                ("dwHotKey", ctypes.c_ulong),
+                ("hIconOrMonitor", ctypes.c_void_p),
+                ("hProcess", ctypes.c_void_p),
+            ]
+
+        see_mask_no_console = 0x00008000
+        see_mask_nocloseprocess = 0x00000040
+        sw_hide = 0
         frozen = _is_frozen_build()
         if frozen:
             target = _resolve_frozen_exe_path()
@@ -164,11 +197,25 @@ def _launch_elevated_instance(skip_login=False):
         if not frozen and "--run" not in argv:
             argv.append("--run")
         params = subprocess.list2cmdline(argv)
-        workdir = str(Path(target).resolve().parent)
-        _write_elevate_log(f"Attempting runas target={target} params={params}")
-        result = ctypes.windll.shell32.ShellExecuteW(None, "runas", target, params, workdir, 1)
-        _write_elevate_log(f"ShellExecuteW result={result}")
-        if result > 32:
+        workdir = os.getcwd()
+        _write_elevate_log(f"Attempting runas target={target} params={params} workdir={workdir}")
+        execute_info = SHELLEXECUTEINFOW()
+        execute_info.cbSize = ctypes.sizeof(execute_info)
+        execute_info.fMask = see_mask_no_console | see_mask_nocloseprocess
+        execute_info.hwnd = None
+        execute_info.lpVerb = "runas"
+        execute_info.lpFile = target
+        execute_info.lpParameters = params
+        execute_info.lpDirectory = workdir
+        execute_info.nShow = sw_hide
+        ok = ctypes.windll.shell32.ShellExecuteExW(ctypes.byref(execute_info))
+        _write_elevate_log(f"ShellExecuteExW ok={ok} hInstApp={execute_info.hInstApp}")
+        if execute_info.hProcess:
+            try:
+                ctypes.windll.kernel32.CloseHandle(execute_info.hProcess)
+            except Exception:
+                pass
+        if ok:
             return True
         if frozen:
             return _launch_elevated_via_powershell(target, argv, workdir)
@@ -192,7 +239,7 @@ def _ensure_elevated_start():
     if is_admin():
         return
     if _launch_elevated_instance(skip_login=False):
-        sys.exit()
+        sys.exit(0)
     _write_elevate_log("Auto-elevate failed; continuing without admin.")
 
 try:
@@ -353,6 +400,15 @@ def _dpapi_transform(raw, *, protect):
             kernel32.LocalFree(out_blob.pbData)
     except Exception:
         return None
+
+def _offline_auth():
+    return {
+        "mode": "local",
+        "username": LOCAL_USERNAME,
+        "email": LOCAL_EMAIL,
+        "session_token": LOCAL_SESSION_TOKEN,
+        "session_expires": "",
+    }
 
 def _default_save_data():
     return {
@@ -535,6 +591,8 @@ def _apply_native_window_icon(widget, icon):
         pass
 
 def save_auth(auth):
+    if OFFLINE_MODE:
+        return True
     if not isinstance(auth, dict):
         return False
     username = (auth.get("username") or "").strip()
@@ -556,6 +614,8 @@ def save_auth(auth):
     return _write_json_file(AUTH_FILE, payload)
 
 def load_auth():
+    if OFFLINE_MODE:
+        return _offline_auth()
     try:
         payload = _load_json_file(AUTH_FILE, {})
         if not isinstance(payload, dict):
@@ -618,7 +678,7 @@ def create_restore_point():
         'Checkpoint-Computer -Description "Hextra" -RestorePointType MODIFY_SETTINGS | Out-Null;'
         'Write-Output "OK"'
     )
-    result = _run_process(["powershell", "-NoProfile", "-Command", script], timeout=180, return_output=True)
+    result = _run_process(["powershell", "-WindowStyle", "Hidden", "-NoProfile", "-Command", script], timeout=180, return_output=True)
     if result == "OK":
         set_restore_made(True)
         return True, "Restore point created successfully."
@@ -716,6 +776,10 @@ def _read_gpu_percent_once():
         kw = {"stderr": subprocess.DEVNULL, "text": True, "encoding": "utf-8", "errors": "ignore", "timeout": 2.5}
         if os.name == "nt":
             kw["creationflags"] = NO_WIN
+            startupinfo = subprocess.STARTUPINFO()
+            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            startupinfo.wShowWindow = 0
+            kw["startupinfo"] = startupinfo
         out = subprocess.check_output(
             ["typeperf", r"\GPU Engine(*)\Utilization Percentage", "-sc", "1"],
             **kw
@@ -762,6 +826,10 @@ def _subprocess_defaults(timeout, *, text=True):
         kw.update({"text": True, "encoding": "utf-8", "errors": "ignore"})
     if os.name == "nt":
         kw["creationflags"] = NO_WIN
+        startupinfo = subprocess.STARTUPINFO()
+        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        startupinfo.wShowWindow = 0
+        kw["startupinfo"] = startupinfo
     return kw
 
 def _run_process(args, *, timeout=120, return_output=False):
@@ -788,7 +856,7 @@ def run_cmd(c):
         if not isinstance(c, str):
             return "unsupported command type"
         if c.startswith("ps:"):
-            return _run_process(["powershell", "-NoProfile", "-Command", c[3:].strip()])
+            return _run_process(["powershell", "-WindowStyle", "Hidden", "-NoProfile", "-Command", c[3:].strip()])
         elif c.startswith("py:"):
             expr = c[3:].strip()
             if expr == "clean_ram()":
@@ -929,14 +997,11 @@ def replica_hero_style(ac):
     )
 
 def _api_base_urls():
-    urls = ["https://oltrski.de"]
-    seen = []
-    for url in urls:
-        if url.lower().startswith("https://") and url not in seen:
-            seen.append(url)
-    return seen
+    return []
 
 def _auth_headers(auth=None):
+    if OFFLINE_MODE:
+        return {}
     auth = auth if isinstance(auth, dict) else load_auth()
     token = (auth.get("session_token") or "").strip()
     username = (auth.get("username") or "").strip()
@@ -948,45 +1013,41 @@ def _auth_headers(auth=None):
         "X-Hextra-HWID": _current_hwid(),
     }
 
+def _offline_status_response():
+    now = datetime.utcnow().isoformat(timespec="seconds")
+    return {
+        "success": True,
+        "offline": True,
+        "licensed": True,
+        "username": LOCAL_USERNAME,
+        "email": LOCAL_EMAIL,
+        "created": now,
+        "days_left": LOCAL_PLAN_DAYS,
+        "license_expires": "never",
+        "licenses": [
+            {
+                "key": "OPEN-SOURCE",
+                "days": LOCAL_PLAN_DAYS,
+                "redeemed_at": now,
+                "active_until": "never",
+            }
+        ],
+        "message": "Local open-source edition is enabled.",
+    }
+
+def _offline_api_response(path, payload=None):
+    resp = _offline_status_response()
+    resp["session_token"] = LOCAL_SESSION_TOKEN
+    resp["session_expires"] = ""
+    resp["motd"] = ""
+    resp["update"] = False
+    return resp
+
 def _post_json(path, payload, *, timeout=8, auth=None):
-    import urllib.request, urllib.error, ssl
-    data = json.dumps(payload or {}).encode("utf-8")
-    ctx = ssl.create_default_context()
-    for base in _api_base_urls():
-        try:
-            req = urllib.request.Request(f"{base}{path}", data=data, method="POST")
-            req.add_header("Content-Type", "application/json")
-            for key, value in _auth_headers(auth).items():
-                req.add_header(key, value)
-            with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
-                return json.loads(resp.read().decode("utf-8"))
-        except urllib.error.HTTPError as exc:
-            try:
-                return json.loads(exc.read().decode("utf-8"))
-            except Exception:
-                return {"success": False, "message": f"Server returned HTTP {exc.code}", "locked": True}
-        except Exception:
-            continue
-    return None
+    return _offline_api_response(path, payload)
 
 def _fetch_json(path, *, timeout=6, auth=None):
-    import urllib.request, urllib.error, ssl
-    ctx = ssl.create_default_context()
-    for base in _api_base_urls():
-        try:
-            req = urllib.request.Request(f"{base}{path}", method="GET")
-            for key, value in _auth_headers(auth).items():
-                req.add_header(key, value)
-            with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
-                return json.loads(resp.read().decode("utf-8"))
-        except urllib.error.HTTPError as exc:
-            try:
-                return json.loads(exc.read().decode("utf-8"))
-            except Exception:
-                return {"success": False, "message": f"Server returned HTTP {exc.code}", "locked": True}
-        except Exception:
-            continue
-    return None
+    return _offline_api_response(path)
 
 def _version_tuple(v):
     try:
@@ -998,6 +1059,8 @@ def _current_version():
     return str(VERSION or "0.0.0")
 
 def _can_self_update():
+    if OFFLINE_MODE:
+        return False
     if os.name != "nt" or not _is_frozen_build():
         return False
     try:
@@ -1063,48 +1126,13 @@ def _start_update_cleanup_thread(paths):
     ).start()
 
 def _download_api_file(path, dest_path, *, timeout=45, progress=None, auth=None):
-    import urllib.request, urllib.error, ssl
-    ctx = ssl.create_default_context()
-    last_error = None
     if progress:
         try:
             progress(0, 0)
         except Exception:
             pass
-    for base in _api_base_urls():
-        try:
-            req = urllib.request.Request(f"{base}{path}", method="GET")
-            for key, value in _auth_headers(auth).items():
-                req.add_header(key, value)
-            with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp, open(dest_path, "wb") as fh:
-                total = 0
-                transferred = 0
-                try:
-                    total = int(resp.headers.get("Content-Length", "0") or 0)
-                except Exception:
-                    total = 0
-                while True:
-                    chunk = resp.read(1024 * 256)
-                    if not chunk:
-                        break
-                    fh.write(chunk)
-                    transferred += len(chunk)
-                    if progress:
-                        progress(transferred, total)
-            return {"success": True, "base": base, "bytes": transferred}
-        except urllib.error.HTTPError as exc:
-            last_error = exc
-            try:
-                body = json.loads(exc.read().decode("utf-8"))
-                if isinstance(body, dict) and body.get("message"):
-                    last_error = body.get("message")
-            except Exception:
-                pass
-            _delete_path_quietly(dest_path)
-        except Exception as exc:
-            last_error = exc
-            _delete_path_quietly(dest_path)
-    return {"success": False, "message": str(last_error or "Could not reach the update server.")}
+    _delete_path_quietly(dest_path)
+    return {"success": False, "offline": True, "message": "Offline edition does not download updates."}
 
 def _write_update_helper(update_path, target_path):
     old_path = f"{target_path}.previous"
@@ -1141,50 +1169,17 @@ def _write_update_helper(update_path, target_path):
     return str(helper_path)
 
 def _prepare_update_install(meta, progress=None, auth=None):
-    if not _can_self_update():
-        return {"success": False, "message": "Auto update only works inside the built Windows EXE."}
-    version = str((meta or {}).get("version", "") or "").strip() or "latest"
-    filename = _safe_update_filename((meta or {}).get("filename", "Hextra.exe"))
-    if Path(filename).suffix.lower() != ".exe":
-        return {"success": False, "message": "The published update is not a Windows executable."}
-    stamp = re.sub(r"[^0-9A-Za-z._-]", "-", version) or "latest"
-    download_path = str(Path(tempfile.gettempdir()) / f"hextra-update-{stamp}-{os.getpid()}.exe")
-    download = _download_api_file("/update/download", download_path, progress=progress, auth=auth)
-    if not download.get("success"):
-        return {"success": False, "message": download.get("message", "Could not download the update.")}
-    expected_size = 0
-    try:
-        expected_size = int((meta or {}).get("size") or 0)
-    except Exception:
-        expected_size = 0
-    actual_size = 0
-    try:
-        actual_size = os.path.getsize(download_path)
-    except Exception:
-        actual_size = 0
-    if expected_size and actual_size and expected_size != actual_size:
-        _delete_path_quietly(download_path)
-        return {"success": False, "message": "Downloaded update size did not match the published build."}
-    expected_checksum = str((meta or {}).get("checksum", "") or "").strip().lower()
-    if expected_checksum:
-        actual_checksum = _sha256_file(download_path).lower()
-        if actual_checksum != expected_checksum:
-            _delete_path_quietly(download_path)
-            return {"success": False, "message": "Downloaded update failed checksum verification."}
-    target_path = _resolve_frozen_exe_path()
-    helper_path = _write_update_helper(download_path, target_path)
-    return {
-        "success": True,
-        "version": version,
-        "download_path": download_path,
-        "target_path": target_path,
-        "helper_path": helper_path,
-        "size": actual_size,
-    }
+    return {"success": False, "message": "Offline edition does not support automatic downloads."}
 
 def _launch_update_helper(helper_path):
     try:
-        subprocess.Popen(["cmd", "/c", helper_path], creationflags=NO_WIN, close_fds=True)
+        kw = {"creationflags": NO_WIN, "close_fds": True}
+        if os.name == "nt":
+            startupinfo = subprocess.STARTUPINFO()
+            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            startupinfo.wShowWindow = 0
+            kw["startupinfo"] = startupinfo
+        subprocess.Popen(["cmd", "/c", helper_path], **kw)
         return True, "Update ready. Hextra will restart to finish installing."
     except Exception as exc:
         return False, f"Could not launch the update helper: {exc}"
@@ -1208,6 +1203,8 @@ def _current_hwid():
     return str(uuid.getnode())
 
 def _account_payload(username, session_token, email="", session_expires=""):
+    if OFFLINE_MODE:
+        return _offline_auth()
     return {
         "mode": "account",
         "username": (username or "").strip(),
@@ -1217,54 +1214,28 @@ def _account_payload(username, session_token, email="", session_expires=""):
     }
 
 def client_register(username, email, password, remember=False):
-    resp = _post_json("/client/register", {
-        "username": (username or "").strip(),
-        "email": (email or "").strip(),
-        "password": password or "",
-        "remember": bool(remember),
-        "hwid": _current_hwid(),
-    }, timeout=10)
-    if not isinstance(resp, dict):
-        return False, "Could not reach the account server right now.", {}
-    if not resp.get("success") or not resp.get("session_token"):
-        return False, resp.get("message", "Login failed"), resp
-    return resp.get("success", False), resp.get("message", "Unknown error"), resp
+    resp = _offline_status_response()
+    resp["session_token"] = LOCAL_SESSION_TOKEN
+    resp["session_expires"] = ""
+    return True, "Local open-source mode enabled.", resp
 
 def client_login(username, password, remember=False):
-    resp = _post_json("/client/login", {
-        "username": (username or "").strip(),
-        "password": password or "",
-        "remember": bool(remember),
-        "hwid": _current_hwid(),
-    }, timeout=10)
-    if not isinstance(resp, dict):
-        return False, "Could not reach the account server right now.", {}
-    if not resp.get("success") or not resp.get("session_token"):
-        return False, resp.get("message", "Login failed"), resp
-    return resp.get("success", False), resp.get("message", "Unknown error"), resp
+    resp = _offline_status_response()
+    resp["session_token"] = LOCAL_SESSION_TOKEN
+    resp["session_expires"] = ""
+    return True, "Local open-source mode enabled.", resp
 
 def client_status(auth):
-    auth = auth if isinstance(auth, dict) else {}
-    resp = _post_json("/client/status", {
-        "username": (auth.get("username") or "").strip(),
-        "session_token": auth.get("session_token") or "",
-        "hwid": _current_hwid(),
-    }, timeout=8, auth=auth)
-    return resp if isinstance(resp, dict) else {}
+    return _offline_status_response()
 
 def client_redeem(auth, key):
-    auth = auth if isinstance(auth, dict) else {}
-    resp = _post_json("/client/redeem", {
-        "username": (auth.get("username") or "").strip(),
-        "session_token": auth.get("session_token") or "",
-        "key": (key or "").strip(),
-        "hwid": _current_hwid(),
-    }, timeout=10, auth=auth)
-    if not isinstance(resp, dict):
-        return False, "Could not reach the account server right now.", {}
+    resp = _offline_status_response()
+    resp["message"] = "Account keys are not required in the open-source edition."
     return resp.get("success", False), resp.get("message", "Unknown error"), resp
 
 def _account_days_left_text(resp):
+    if OFFLINE_MODE:
+        return "Local edition", "cyan"
     if not isinstance(resp, dict) or not resp:
         return "Backend unavailable", "red"
     if resp.get("success") is False:
@@ -1278,6 +1249,8 @@ def _account_days_left_text(resp):
     return f"{days_left} {label}", tone
 
 def account_has_active_plan(auth=None):
+    if OFFLINE_MODE:
+        return True, _offline_status_response()
     auth = auth if isinstance(auth, dict) else load_auth()
     if auth.get("mode") != "account" or not auth.get("username") or not auth.get("session_token"):
         return False, {}
@@ -1732,7 +1705,13 @@ CATEGORIES = {
         ("TCP/IP Reset",     ["netsh int ip reset"],
          "Resets the whole TCP/IP stack. If internet is bad try this."),
         ("Nagle OFF",        ['reg add "HKLM\\SOFTWARE\\Microsoft\\MSMQ\\Parameters" /v TCPNoDelay /t REG_DWORD /d 1 /f'],
-         "sends packets instantly lowers ping"),
+         "makes tcp packets send instantly"),
+        ("TCP Auto-Tuning Normal", ["netsh int tcp set global autotuninglevel=normal"],
+         "restores default tcp auto-tuning for better throughput"),
+        ("Delivery Optimization OFF", ['reg add "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DeliveryOptimization" /v DODownloadMode /t REG_DWORD /d 0 /f'],
+         "stops windows sharing updates with other pcs"),
+        ("Net Throttle OFF", ['reg add "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile" /v NetworkThrottlingIndex /t REG_DWORD /d 0xffffffff /f'],
+         "turns off network throttling for games"),
         ("Net Throttle OFF", ['reg add "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile" /v NetworkThrottlingIndex /t REG_DWORD /d 0xffffffff /f'],
          "stops windows throttling ur network"),
         ("DNS Cloudflare",   ['netsh interface ip set dns "Ethernet" static 1.1.1.1 primary', 'netsh interface ip add dns "Ethernet" 1.0.0.1 index=2'],
@@ -1899,6 +1878,8 @@ CATEGORIES = {
          "stops clipboard syncing to cloud"),
     ],
     "Power": [
+        ("Hibernate OFF",    ["powercfg -h off"],
+         "turns off hibernate frees disk space"),
         ("Ultimate Perf", ["powercfg -duplicatescheme e9a42b02-d5df-448d-aa00-03f14749eb61", "powercfg -setactive e9a42b02-d5df-448d-aa00-03f14749eb61"],
          "Enables the hidden Ultimate Performance plan.\nWarning: PC becomes hotter, not for laptops on battery."),
         ("High Performance Plan", ["powercfg -setactive SCHEME_MIN"],
@@ -1925,6 +1906,8 @@ CATEGORIES = {
          "applies power plan"),
     ],
     "Cleanup": [
+        ("NTFS Last Access OFF", ['fsutil behavior set disablelastaccess 1'],
+         "stops windows from recording last access time for files"),
         ("Temp Cleanup",     ['ps:Remove-Item -Force -Recurse -ErrorAction SilentlyContinue "$env:TEMP\\*"', 'ps:Remove-Item -Force -Recurse -ErrorAction SilentlyContinue "$env:WINDIR\\Temp\\*"'],
          "clears temp folders"),
         ("Win Temp",      ['cmd /c "del /f /s /q "%TEMP%\\*" 2>nul"'],
@@ -2546,7 +2529,7 @@ def command_status(cmd):
     if cmd.lower().startswith("appx:"):
         package = cmd.split(":", 1)[1].strip()
         script = f'if(Get-AppxPackage -AllUsers "{package}"){{"FOUND"}}else{{"MISSING"}}'
-        result = _run_process(["powershell", "-NoProfile", "-Command", script], return_output=True, timeout=10)
+        result = _run_process(["powershell", "-WindowStyle", "Hidden", "-NoProfile", "-Command", script], return_output=True, timeout=10)
         if not result:
             return None
         return result.strip().upper() == "MISSING"
@@ -2801,10 +2784,6 @@ class RedeemWorker(QThread):
 class _MotdPollWorker(QThread):
     result = pyqtSignal(str)
     def run(self):
-        resp = _fetch_json("/motd", timeout=6)
-        if isinstance(resp, dict):
-            self.result.emit(resp.get("motd", ""))
-            return
         self.result.emit("")
 
 class UpdateCheckWorker(QThread):
@@ -2816,15 +2795,7 @@ class UpdateCheckWorker(QThread):
         self.auth = dict(auth or {})
 
     def run(self):
-        if not _can_self_update():
-            self.result.emit({})
-            return
-        try:
-            from urllib.parse import quote
-            resp = _fetch_json(f"/update/check?v={quote(self.current_version)}", timeout=8, auth=self.auth)
-        except Exception:
-            resp = None
-        self.result.emit(resp if isinstance(resp, dict) else {})
+        self.result.emit({"success": True, "offline": True, "update": False})
 
 class UpdateDownloadWorker(QThread):
     progress = pyqtSignal(int, int, str)
@@ -2836,23 +2807,8 @@ class UpdateDownloadWorker(QThread):
         self.auth = dict(auth or {})
 
     def run(self):
-        published_size = 0
-        try:
-            published_size = int(self.meta.get("size") or 0)
-        except Exception:
-            published_size = 0
-
-        def _emit_progress(done, total):
-            self.progress.emit(int(done or 0), int(total or published_size or 0), "Downloading update...")
-
-        _emit_progress(0, published_size)
-        payload = _prepare_update_install(self.meta, progress=_emit_progress, auth=self.auth)
-        if payload.get("success"):
-            final_size = int(payload.get("size") or published_size or 0)
-            self.progress.emit(final_size, final_size, "Preparing installer...")
-            self.result.emit(True, "Update downloaded. Hextra will restart to finish installing.", payload)
-            return
-        self.result.emit(False, payload.get("message", "Could not prepare the update."), payload)
+        self.progress.emit(0, 0, "Offline build")
+        self.result.emit(False, "Offline edition does not download updates.", {"offline": True})
 
 class Toggle(QAbstractButton):
     def __init__(self, accent, parent=None):
@@ -3155,6 +3111,7 @@ class Sidebar(QFrame):
                 ("tweak:Privacy", "Privacy"),
                 ("tweak:Debloat", "Debloat"),
                 ("tweak:Services", "Services"),
+                ("uninstaller", "Uninstaller"),
             ]),
             ("Games", [
                 ("tweak:Roblox", "Roblox"),
@@ -4504,10 +4461,12 @@ class HomePage(QWidget):
             cpu_name = platform.processor() or "N/A"
         if not cpu_name or cpu_name == "N/A":
             cpu_name = platform.processor() or "N/A"
+        disk_root = "C:\\" if os.name == "nt" else "/"
+        disk_total_gb = psutil.disk_usage(disk_root).total / 1073741824
         for k, v in [("cpu", cpu_name[:48]),
                      ("cores", f"{psutil.cpu_count(logical=False)} physical / {psutil.cpu_count()} logical"),
                      ("ram", f"{psutil.virtual_memory().total/1073741824:.1f} GB"),
-                     ("disk c", f"{psutil.disk_usage('C:\\' if os.name == 'nt' else '/').total/1073741824:.0f} GB")]:
+                     ("disk c", f"{disk_total_gb:.0f} GB")]:
             r, _ = _irow(k, v); bv2.addWidget(r)
 
         top_row = QHBoxLayout()
@@ -5474,18 +5433,18 @@ class AccountPage(QWidget):
         hero_l = QVBoxLayout(self._hero)
         hero_l.setContentsMargins(20, 18, 20, 18)
         hero_l.setSpacing(10)
-        self._hero_eyebrow = QLabel("ACCOUNT OVERVIEW")
-        self._hero_title = QLabel("Your account at a glance")
+        self._hero_eyebrow = QLabel("LOCAL EDITION")
+        self._hero_title = QLabel("Open-source local mode")
         self._hero_title.setStyleSheet(f"color:{MAIN};font:700 18pt '{TITLE_FONT}';border:none;background:transparent;")
-        self._hero_sub = QLabel("Track membership status, redeem keys, and keep your account details close to the tweaks they unlock.")
+        self._hero_sub = QLabel("Hextra runs fully offline. All tweak features are available locally from the source build.")
         self._hero_sub.setWordWrap(True)
         self._hero_sub.setStyleSheet(f"color:{MID};font:500 10pt '{UI_FONT}';border:none;background:transparent;")
         badge_row = QHBoxLayout()
         badge_row.setContentsMargins(0, 0, 0, 0)
         badge_row.setSpacing(8)
-        self._hero_status_badge = QLabel("No account")
-        self._hero_plan_badge = QLabel("No active plan")
-        self._hero_member_badge = QLabel("Member since -")
+        self._hero_status_badge = QLabel("Local")
+        self._hero_plan_badge = QLabel("Open Source")
+        self._hero_member_badge = QLabel("Offline")
         badge_row.addWidget(self._hero_status_badge)
         badge_row.addWidget(self._hero_plan_badge)
         badge_row.addWidget(self._hero_member_badge)
@@ -5501,20 +5460,20 @@ class AccountPage(QWidget):
         pl = QVBoxLayout(self._profile)
         pl.setContentsMargins(20, 20, 20, 20)
         pl.setSpacing(12)
-        cap = QLabel("PROFILE DETAILS")
-        title = QLabel("Profile Information")
+        cap = QLabel("LOCAL DETAILS")
+        title = QLabel("Installation Information")
         cap.setStyleSheet(replica_section_caption(self._get_ac()))
         title.setStyleSheet(f"color:{MAIN};font:700 16pt '{TITLE_FONT}';border:none;background:transparent;")
         pl.addWidget(cap)
         pl.addWidget(title)
-        subtitle = QLabel("Your account details and membership information")
+        subtitle = QLabel("Local access details for this open-source build")
         subtitle.setStyleSheet(f"color:{MID};font:11px '{UI_FONT}';border:none;")
         pl.addWidget(subtitle)
-        self._username_row, self._username_val = _irow("username", "-", label_width=120, row_height=48, label_px=11, value_size=13)
-        self._email_row, self._email_val = _irow("email", "-", label_width=120, row_height=48, label_px=11, value_size=13)
-        self._created_row, self._created_val = _irow("member since", "-", label_width=120, row_height=48, label_px=11, value_size=13)
-        self._status_row, self._status_val = _irow("status", "No active plan", label_width=120, row_height=48, label_px=11, value_size=13)
-        self._expires_row, self._expires_val = _irow("active until", "-", label_width=120, row_height=48, label_px=11, value_size=13)
+        self._username_row, self._username_val = _irow("mode", "-", label_width=120, row_height=48, label_px=11, value_size=13)
+        self._email_row, self._email_val = _irow("build", "-", label_width=120, row_height=48, label_px=11, value_size=13)
+        self._created_row, self._created_val = _irow("source", "-", label_width=120, row_height=48, label_px=11, value_size=13)
+        self._status_row, self._status_val = _irow("access", "Open Source", label_width=120, row_height=48, label_px=11, value_size=13)
+        self._expires_row, self._expires_val = _irow("updates", "-", label_width=120, row_height=48, label_px=11, value_size=13)
         for row in (self._username_row, self._email_row, self._created_row, self._status_row, self._expires_row):
             pl.addWidget(row)
         lay.addWidget(self._profile)
@@ -5524,13 +5483,13 @@ class AccountPage(QWidget):
         ll = QVBoxLayout(self._licenses)
         ll.setContentsMargins(20, 20, 20, 20)
         ll.setSpacing(12)
-        lic_cap = QLabel("LICENSES")
-        lic_title = QLabel("Licenses")
+        lic_cap = QLabel("ACCESS")
+        lic_title = QLabel("Open Source Access")
         lic_cap.setStyleSheet(replica_section_caption(self._get_ac()))
         lic_title.setStyleSheet(f"color:{MAIN};font:700 15pt '{TITLE_FONT}';border:none;background:transparent;")
         ll.addWidget(lic_cap)
         ll.addWidget(lic_title)
-        lic_sub = QLabel("Manage your license keys and view active licenses")
+        lic_sub = QLabel("All tweak features are available locally without any account system.")
         lic_sub.setStyleSheet(f"color:{MID};font:11px '{UI_FONT}';border:none;")
         ll.addWidget(lic_sub)
         self._redeem_shell = QFrame()
@@ -5541,7 +5500,7 @@ class AccountPage(QWidget):
         redeem_row = QHBoxLayout()
         redeem_row.setSpacing(8)
         self._redeem_input = QLineEdit()
-        self._redeem_input.setPlaceholderText("Enter license key")
+        self._redeem_input.setPlaceholderText("Not used in local mode")
         self._redeem_input.setFixedHeight(38)
         self._redeem_btn = QPushButton("Redeem")
         self._redeem_btn.setFixedHeight(38)
@@ -5555,6 +5514,9 @@ class AccountPage(QWidget):
         self._redeem_msg.setWordWrap(True)
         self._redeem_msg.setStyleSheet(f"color:{MID};font:11px '{UI_FONT}';border:none;")
         ll.addWidget(self._redeem_msg)
+        if OFFLINE_MODE:
+            self._redeem_shell.hide()
+            self._redeem_msg.setText("This open-source edition does not use account keys.")
         self._history_host = QWidget()
         self._history_host.setStyleSheet("background:transparent;border:none;")
         self._history_lay = QVBoxLayout(self._history_host)
@@ -5616,30 +5578,32 @@ class AccountPage(QWidget):
     def _render(self):
         auth = self._auth or {}
         status = self._status or {}
+        if OFFLINE_MODE:
+            status = _offline_status_response()
         username = status.get('username') or auth.get('username') or '-'
         email = status.get('email') or auth.get('email') or '-'
         created = str(status.get('created') or '-').replace('T', ' ')[:10]
-        self._username_val.setText(username)
-        self._email_val.setText(email)
-        self._created_val.setText(created)
-        self._hero_title.setText(f"{username}'s account" if username and username != "-" else "Your account at a glance")
-        self._hero_status_badge.setText("Signed In" if username and username != "-" else "No Account")
+        self._username_val.setText("local/offline" if OFFLINE_MODE else username)
+        self._email_val.setText(f"Hextra {VERSION}" if OFFLINE_MODE else email)
+        self._created_val.setText("source code" if OFFLINE_MODE else created)
+        self._hero_title.setText("Open-source local mode" if OFFLINE_MODE else (f"{username}'s account" if username and username != "-" else "Your account at a glance"))
+        self._hero_status_badge.setText("Offline" if OFFLINE_MODE else ("Signed In" if username and username != "-" else "No Account"))
         self._hero_status_badge.setStyleSheet(
-            replica_badge_style("cyan" if username and username != "-" else "amber", font_px=10, padding_v=4, padding_h=10, radius=3, letter_spacing=0.8)
+            replica_badge_style("cyan" if OFFLINE_MODE or (username and username != "-") else "amber", font_px=10, padding_v=4, padding_h=10, radius=3, letter_spacing=0.8)
         )
-        self._hero_member_badge.setText(f"Member since {created}" if created != "-" else "Member since -")
+        self._hero_member_badge.setText("No server" if OFFLINE_MODE else (f"Member since {created}" if created != "-" else "Member since -"))
         self._hero_member_badge.setStyleSheet(replica_badge_style("gold", font_px=10, padding_v=4, padding_h=10, radius=3, letter_spacing=0.8))
         if status.get("licensed"):
-            self._status_val.setText(f"Active ({status.get('days_left', 0)} days left)")
+            self._status_val.setText("Full local access" if OFFLINE_MODE else f"Active ({status.get('days_left', 0)} days left)")
             self._status_val.setStyleSheet(f"color:{MAIN};font:700 13px '{UI_FONT}';border:none;")
-            self._hero_plan_badge.setText(f"{status.get('days_left', 0)} days left")
+            self._hero_plan_badge.setText("Open Source" if OFFLINE_MODE else f"{status.get('days_left', 0)} days left")
             self._hero_plan_badge.setStyleSheet(replica_badge_style("green", font_px=10, padding_v=4, padding_h=10, radius=3, letter_spacing=0.8))
         else:
             self._status_val.setText("No active plan")
             self._status_val.setStyleSheet(f"color:{MID};font:700 13px '{UI_FONT}';border:none;")
             self._hero_plan_badge.setText("No active plan")
             self._hero_plan_badge.setStyleSheet(replica_badge_style("amber", font_px=10, padding_v=4, padding_h=10, radius=3, letter_spacing=0.8))
-        self._expires_val.setText(str(status.get('license_expires') or '-').replace('T', ' ')[:16])
+        self._expires_val.setText("rebuild from source" if OFFLINE_MODE else str(status.get('license_expires') or '-').replace('T', ' ')[:16])
         self._render_history(status.get("licenses") or [])
 
     def _render_history(self, licenses):
@@ -5653,9 +5617,9 @@ class AccountPage(QWidget):
             empty.setStyleSheet(f"QFrame{{background:{REPLICA['surface_alt']};border:1px solid {REPLICA['line_soft']};border-radius:14px;}}")
             el = QVBoxLayout(empty)
             el.setContentsMargins(14, 12, 14, 12)
-            title = QLabel("No redeemed keys yet.")
+            title = QLabel("No account keys required." if OFFLINE_MODE else "No redeemed keys yet.")
             title.setStyleSheet(f"color:{MAIN};font:700 10pt '{UI_FONT}';border:none;")
-            label = QLabel("Redeemed plans will appear here with activation dates and expiry details.")
+            label = QLabel("This build is local and open source." if OFFLINE_MODE else "Redeemed plans will appear here with activation dates and expiry details.")
             label.setWordWrap(True)
             label.setStyleSheet(f"color:{MID};font:10px '{UI_FONT}';border:none;")
             el.addWidget(title)
@@ -5687,6 +5651,9 @@ class AccountPage(QWidget):
             self._history_lay.addWidget(card)
 
     def _redeem(self):
+        if OFFLINE_MODE:
+            self._redeem_msg.setText("Account keys are not used in the open-source edition.")
+            return
         key = self._redeem_input.text().strip()
         if not key:
             self._redeem_msg.setText("Enter a key first.")
@@ -6119,6 +6086,170 @@ class QuickToolsPage(QWidget):
         self._plan_active = bool(active)
 
 
+class _UninstallerWorker(QThread):
+    result = pyqtSignal(list)
+    def run(self):
+        import winreg, shlex, os
+        programs = []
+        keys_to_check = [
+            (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall"),
+            (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"),
+            (winreg.HKEY_CURRENT_USER, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall")
+        ]
+        for root_key, sub_key in keys_to_check:
+            try:
+                with winreg.OpenKey(root_key, sub_key) as key:
+                    for i in range(winreg.QueryInfoKey(key)[0]):
+                        try:
+                            subkey_name = winreg.EnumKey(key, i)
+                            with winreg.OpenKey(key, subkey_name) as subkey:
+                                try:
+                                    name = winreg.QueryValueEx(subkey, "DisplayName")[0]
+                                    uninstall_string = winreg.QueryValueEx(subkey, "UninstallString")[0]
+                                    system_component = 0
+                                    try:
+                                        system_component = winreg.QueryValueEx(subkey, "SystemComponent")[0]
+                                    except Exception:
+                                        pass
+                                    if name and uninstall_string and not system_component:
+                                        icon_path = ""
+                                        try:
+                                            icon_val = winreg.QueryValueEx(subkey, "DisplayIcon")[0]
+                                            if icon_val:
+                                                icon_path = icon_val.strip('"')
+                                                if ',' in icon_path:
+                                                    icon_path = icon_path.rsplit(',', 1)[0]
+                                        except Exception:
+                                            pass
+                                        if not icon_path and uninstall_string:
+                                            try:
+                                                args = shlex.split(uninstall_string)
+                                                if args and args[0].lower().endswith('.exe'):
+                                                    icon_path = args[0]
+                                            except Exception:
+                                                pass
+                                        programs.append({"name": name, "cmd": uninstall_string, "icon": icon_path})
+                                except OSError:
+                                    pass
+                        except OSError:
+                            pass
+            except OSError:
+                pass
+        seen = set()
+        unique_programs = []
+        for p in programs:
+            if p["name"] not in seen:
+                seen.add(p["name"])
+                unique_programs.append(p)
+        self.result.emit(sorted(unique_programs, key=lambda x: x["name"].lower()))
+
+class HtmlUninstallerPage(QWidget):
+    def __init__(self, get_ac, parent=None):
+        super().__init__(parent)
+        self._get_ac = get_ac
+        self.setStyleSheet(f"background:{BG};")
+        root = QVBoxLayout(self)
+        root.setContentsMargins(32, 28, 32, 28)
+        root.setSpacing(0)
+        self._title = QLabel("Uninstaller")
+        self._title.setStyleSheet(replica_title_style())
+        self._subtitle = QLabel("uninstall programs from your system")
+        self._subtitle.setStyleSheet(f"color:{MID};font:11px '{MONO_FONT}';border:none;")
+        root.addWidget(self._title)
+        root.addWidget(self._subtitle)
+        root.addSpacing(24)
+
+        self._scroll = SmoothScrollArea()
+        self._scroll.setWidgetResizable(True)
+        self._scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._scroll.setStyleSheet(f"QScrollArea{{background:transparent;border:none;}}QScrollBar:vertical{{background:transparent;width:4px;border:none;margin:6px 0 6px 0;}}QScrollBar::handle:vertical{{background:{LINE};border:none;border-radius:2px;min-height:24px;}}QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical{{height:0;}}")
+        self._content = QWidget()
+        self._content.setStyleSheet("background:transparent;")
+        self._list_ly = QVBoxLayout(self._content)
+        self._list_ly.setContentsMargins(0, 0, 24, 0)
+        self._list_ly.setSpacing(8)
+        self._list_ly.addStretch()
+        self._scroll.setWidget(self._content)
+        root.addWidget(self._scroll, 1)
+
+        self._loading = QLabel("Scanning installed programs...")
+        self._loading.setStyleSheet(f"color:{MID};font:12px '{UI_FONT}';border:none;")
+        self._list_ly.insertWidget(0, self._loading)
+
+        self._worker = _UninstallerWorker()
+        self._worker.result.connect(self._on_loaded)
+        self._worker.start()
+
+    def _on_loaded(self, programs):
+        from PyQt6.QtWidgets import QFileIconProvider
+        from PyQt6.QtCore import QFileInfo
+        import os
+        
+        provider = QFileIconProvider()
+        
+        self._loading.setVisible(False)
+        item = self._list_ly.takeAt(self._list_ly.count() - 1)
+        if item.spacerItem():
+            pass
+        for p in programs:
+            card = QFrame()
+            card.setStyleSheet(f"QFrame{{background:{PANEL};border:1px solid {LINE};border-radius:4px;}}")
+            card.setFixedHeight(60)
+            card_l = QHBoxLayout(card)
+            card_l.setContentsMargins(16, 8, 16, 8)
+            card_l.setSpacing(12)
+            
+            icon_lbl = QLabel()
+            icon_lbl.setFixedSize(24, 24)
+            icon_lbl.setStyleSheet("background:transparent;border:none;")
+            has_icon = False
+            if p.get("icon") and os.path.exists(p["icon"]):
+                icon = provider.icon(QFileInfo(p["icon"]))
+                if not icon.isNull():
+                    icon_lbl.setPixmap(icon.pixmap(24, 24))
+                    has_icon = True
+            if not has_icon:
+                pass
+                
+            card_l.addWidget(icon_lbl)
+            
+            name_text = p["name"]
+            if len(name_text) > 52:
+                name_text = name_text[:49] + "..."
+            name_lbl = QLabel(name_text)
+            name_lbl.setStyleSheet(f"color:{MAIN};font:500 13px '{UI_FONT}';border:none;")
+            name_lbl.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+            name_lbl.setMinimumWidth(10)
+            card_l.addWidget(name_lbl, 1)
+            btn = QPushButton("Uninstall")
+            btn.setFixedWidth(96)
+            btn.setFixedHeight(30)
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn.setStyleSheet(_ghost(self._get_ac()))
+            btn.clicked.connect(lambda _=False, cmd=p["cmd"]: self._uninstall(cmd))
+            card_l.addWidget(btn)
+            self._list_ly.addWidget(card)
+        self._list_ly.addStretch()
+
+    def _uninstall(self, cmd):
+        import subprocess, shlex, os
+        try:
+            args = shlex.split(cmd)
+            subprocess.Popen(args, creationflags=NO_WIN if os.name=='nt' else 0)
+        except Exception:
+            pass
+
+    def update_accent(self, color):
+        for i in range(self._list_ly.count()):
+            item = self._list_ly.itemAt(i)
+            w = item.widget()
+            if w and isinstance(w, QFrame) and w.layout():
+                if w.layout().count() >= 3:
+                    btn = w.layout().itemAt(2).widget()
+                    if isinstance(btn, QPushButton):
+                        btn.setStyleSheet(_ghost(color))
+
 class HtmlRestorePage(QWidget):
     def __init__(self, get_ac, parent=None):
         super().__init__(parent)
@@ -6320,7 +6451,7 @@ class HtmlSettingsPage(QWidget):
         root.addWidget(snow_row)
 
         root.addSpacing(24)
-        updates = QLabel("Updates")
+        updates = QLabel("Build")
         updates.setStyleSheet(f"color:{DIM};font:500 9px '{MONO_FONT}';letter-spacing:1.5px;border:none;")
         root.addWidget(updates)
         root.addSpacing(12)
@@ -6333,12 +6464,12 @@ class HtmlSettingsPage(QWidget):
         update_text = QVBoxLayout()
         update_text.setContentsMargins(0, 0, 0, 0)
         update_text.setSpacing(2)
-        update_text.addWidget(_lbl("Check for Updates", MAIN, size=12))
-        update_text.addWidget(_lbl("look for a newer Hextra build on your server", MID, size=10))
+        update_text.addWidget(_lbl("Local Version", MAIN, size=12))
+        update_text.addWidget(_lbl("offline open-source build; update by rebuilding from source", MID, size=10))
         self._update_status = _lbl(f"Current build {VERSION}", MID, size=10)
         self._update_status.setWordWrap(True)
         update_text.addWidget(self._update_status)
-        self._check_updates_btn = QPushButton("check")
+        self._check_updates_btn = QPushButton("info")
         self._check_updates_btn.setFixedHeight(28)
         self._check_updates_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._check_updates_btn.setStyleSheet(_ghost(self._get_ac()))
@@ -6451,6 +6582,9 @@ class HtmlSettingsPage(QWidget):
         self.snow_changed.emit(enabled)
 
     def _request_update_check(self):
+        if OFFLINE_MODE:
+            self.set_update_status(f"Offline build {VERSION}. Update by pulling the source and rebuilding.", MID)
+            return
         self.set_update_status("Checking for updates...", MID)
         self.check_updates_requested.emit()
 
@@ -6585,6 +6719,8 @@ class Dashboard(QWidget):
         self._settings.data_imported.connect(self._reload_from_data)
         self._settings.check_updates_requested.connect(self._request_update_check)
         self._stack.addWidget(self._settings)
+        self._uninstaller = HtmlUninstallerPage(self._get_ac)
+        self._stack.addWidget(self._uninstaller)
         self._restore = HtmlRestorePage(self._get_ac)
         self._stack.addWidget(self._restore)
 
@@ -6596,10 +6732,14 @@ class Dashboard(QWidget):
         self._snow.setVisible(self._snow_on)
         self._snow.raise_()
         self._update_logo(self._get_ac())
-        self._account.set_session(self._auth)
-        self._set_plan_access(False)
-        QTimer.singleShot(0, self._refresh_license_badge)
-        self._license_refresh_timer.start()
+        self._account.set_session(self._auth, _offline_status_response() if OFFLINE_MODE else None)
+        if OFFLINE_MODE:
+            self._set_plan_access(True)
+            self._sidebar.set_account_summary("local", "Open Source", True)
+        else:
+            self._set_plan_access(False)
+            QTimer.singleShot(0, self._refresh_license_badge)
+            self._license_refresh_timer.start()
 
     def _switch(self, key):
         if key == "home":
@@ -6614,6 +6754,8 @@ class Dashboard(QWidget):
             target = self._profiles
         elif key == "settings":
             target = self._settings
+        elif key == "uninstaller":
+            target = self._uninstaller
         elif key == "restore":
             target = self._restore
         elif key.startswith("tweak:"):
@@ -6659,6 +6801,7 @@ class Dashboard(QWidget):
         self._quick.update_accent(color)
         self._profiles.update_accent(color)
         self._settings.update_accent(color)
+        self._uninstaller.update_accent(color)
         self._restore.update_accent(color)
         for pg in self._tpages.values():
             pg.update_accent(color)
@@ -6696,6 +6839,12 @@ class Dashboard(QWidget):
         )
 
     def _refresh_license_badge(self):
+        if OFFLINE_MODE:
+            self._auth = _offline_auth()
+            self._set_plan_access(True)
+            self._account.set_session(self._auth, _offline_status_response())
+            self._sidebar.set_account_summary("local", "Open Source", True)
+            return
         if self._license_status_worker is not None:
             return
         auth = self._auth if isinstance(getattr(self, "_auth", None), dict) and self._auth.get("session_token") else load_auth()
@@ -6881,7 +7030,7 @@ class LoginPage(QWidget):
         self._eyebrow.setStyleSheet(replica_section_caption(accent))
         cl.addWidget(self._eyebrow)
 
-        self._card_title = QLabel("Sign in to continue"); self._card_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._card_title = QLabel("Local mode"); self._card_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._card_title.setStyleSheet(f"color:{MAIN};font:700 16pt '{TITLE_FONT}';border:none;background:transparent;")
         cl.addWidget(self._card_title)
 
@@ -6917,12 +7066,12 @@ class LoginPage(QWidget):
         self._msg.setStyleSheet(f"color:{MID};font:600 9pt '{UI_FONT}';border:none;background:transparent;")
         cl.addWidget(self._msg)
 
-        self._btn = QPushButton("Sign In"); self._btn.setFixedHeight(46)
+        self._btn = QPushButton("Continue"); self._btn.setFixedHeight(46)
         self._btn.setCursor(Qt.CursorShape.PointingHandCursor); self._btn.setStyleSheet(_solid(accent))
         self._btn.clicked.connect(self._login)
         cl.addWidget(self._btn)
 
-        self._switch_btn = QPushButton("Create Account")
+        self._switch_btn = QPushButton("Open Source")
         self._switch_btn.setFixedHeight(38)
         self._switch_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._switch_btn.clicked.connect(self._toggle_mode)
@@ -6974,8 +7123,7 @@ class LoginPage(QWidget):
         self.set_logo_color(display_color)
 
     def _fetch_login_motd(self):
-        w = _MotdPollWorker(); w.result.connect(self._on_login_motd); w.start()
-        self._motd_poll_worker = w
+        return
 
     def _on_login_motd(self, motd):
         if motd and motd.strip():
@@ -7041,13 +7189,15 @@ class LoginPage(QWidget):
 
     def _update_mode_ui(self):
         registering = self._mode == "register"
-        self._card_title.setText("Create your account" if registering else "Sign in to continue")
-        self._card_sub.setText("Set up your account to sync access and manage your plan from one place." if registering else "Sync your plan, theme, and restore-aware workflow across sessions.")
-        self._email.setVisible(registering)
-        self._btn.setText("Create Account" if registering else "Sign In")
-        self._switch_btn.setText("Back to Sign In" if registering else "Create Account")
+        self._card_title.setText("Local mode")
+        self._card_sub.setText("All features are available offline in this open-source build.")
+        self._email.setVisible(False)
+        self._btn.setText("Continue")
+        self._switch_btn.setText("Open Source")
 
     def _login(self):
+        self.logged_in.emit({"auth": _offline_auth(), **_offline_status_response()})
+        return
         username = self._user.text().strip()
         email = self._email.text().strip()
         password = self._pw.text()
@@ -7066,7 +7216,7 @@ class LoginPage(QWidget):
 
     def _on_result(self, ok, msg, resp):
         self._btn.setEnabled(True); self._switch_btn.setEnabled(True)
-        self._btn.setText("Create Account" if self._mode == "register" else "Sign In")
+        self._btn.setText("Continue")
         if ok:
             auth_info = _account_payload(
                 self._user.text().strip(),
@@ -7183,7 +7333,7 @@ class UpdateAvailableDialog(QDialog):
 
         title = QLabel("Update Available")
         title.setStyleSheet(f"color:{MAIN};font:700 18pt '{TITLE_FONT}';border:none;background:transparent;")
-        subtitle = QLabel("A newer Hextra build is available on your update server.")
+        subtitle = QLabel("A newer Hextra build is available from the source release.")
         subtitle.setWordWrap(True)
         subtitle.setStyleSheet(f"color:{DIM};font:500 10pt '{UI_FONT}';border:none;background:transparent;")
 
@@ -7392,31 +7542,33 @@ class Hextra(QWidget):
         self.resize(980, 640); self.setMinimumSize(self.MW, self.MH)
 
         self._stack = QStackedWidget(self)
-        self._login = LoginPage(self._accent if not self._rainbow else "#e60000")
-        self._login.logged_in.connect(self._on_logged_in)
-        self._login.success.connect(self._go_dash)
-        self._login.theme_changed.connect(self._set_accent)
-        self._login.motd_received.connect(self._show_motd_on_window)
-        self._stack.addWidget(self._login)
-        self._dash = None
+        self._login = None
+        self._dash = Dashboard(self._current_accent, self._set_accent, self)
+        self._stack.addWidget(self._dash)
         self._corner_grip = CornerGrip(self._get_display_color, self)
         self._corner_grip.setVisible(not self._native_frame)
         self._corner_grip.raise_()
         self._update_stack_geo()
         self._pending_motd = ""
         self._pending_login_payload = {}
+        self._dash_ready = True
 
         self._timer = QTimer(); self._timer.timeout.connect(self._tick); self._timer.start(60)
 
         self._last_motd = ""
-        self._motd_poll = QTimer(); self._motd_poll.timeout.connect(self._poll_motd); self._motd_poll.start(60000)
+        self._motd_poll = QTimer()
+        self._motd_poll.timeout.connect(self._poll_motd)
+        if not OFFLINE_MODE:
+            self._motd_poll.start(60000)
         self._update_timer = QTimer(self)
         self._update_timer.timeout.connect(self._check_for_updates)
-        self._update_timer.start(UPDATE_CHECK_INTERVAL_MS)
+        if not OFFLINE_MODE:
+            self._update_timer.start(UPDATE_CHECK_INTERVAL_MS)
         QTimer.singleShot(0, self._preload_dash)
         QTimer.singleShot(0, self._apply_window_corners)
-        QTimer.singleShot(250, self._try_saved_session)
-        QTimer.singleShot(3500, self._check_for_updates)
+        if not OFFLINE_MODE:
+            QTimer.singleShot(250, self._try_saved_session)
+            QTimer.singleShot(3500, self._check_for_updates)
 
     def _current_accent(self):
         return self._get_display_color() if self._rainbow else self._accent
@@ -7552,7 +7704,7 @@ class Hextra(QWidget):
             self._on_logged_in(payload)
             return
         clear_auth()
-        message = "Saved session expired. Sign in again."
+        message = "Local session reset."
         if isinstance(resp, dict) and resp.get("message"):
             message = str(resp.get("message"))
         self._login._set_msg(message, MID)
@@ -7590,6 +7742,10 @@ class Hextra(QWidget):
             pass
 
     def trigger_update_check(self, manual=False):
+        if OFFLINE_MODE:
+            if manual:
+                self._set_settings_update_status(f"Offline build {VERSION}. Update by rebuilding from source.", MID)
+            return
         if manual:
             if not _can_self_update():
                 self._set_settings_update_status("Auto update only works inside the built Windows EXE.", MID)
@@ -7634,7 +7790,7 @@ class Hextra(QWidget):
         self._force_update_prompt = False
         if not isinstance(resp, dict) or not resp:
             if manual:
-                self._set_settings_update_status("Could not reach the update server right now.", MID)
+                self._set_settings_update_status("Offline build. Update by rebuilding from source.", MID)
             return
         if not resp.get("update"):
             if manual:
@@ -7798,9 +7954,13 @@ def main():
     app.setStyleSheet("QToolTip{background:qlineargradient(x1:0,y1:0,x2:1,y2:1,stop:0 rgba(255,255,255,24),stop:0.18 rgba(28,33,44,236),stop:1 rgba(20,24,34,246));color:#eef4ff;border:1px solid rgba(185,205,240,72);border-radius:10px;padding:7px 11px;font:600 10px 'Segoe UI';}")
     app_icon = _load_app_icon()
     app.setWindowIcon(app_icon)
-    window = Hextra(); window.setWindowIcon(app_icon); window.show()
+    window = Hextra(); window.setWindowIcon(app_icon); window.setWindowOpacity(0.0)
     _apply_native_window_icon(window, app_icon)
+    QTimer.singleShot(0, window.show)
     QTimer.singleShot(0, lambda: _apply_native_window_icon(window, app_icon))
+    QTimer.singleShot(50, lambda: window.setWindowOpacity(1.0))
+    if "--smoke-test" in sys.argv:
+        QTimer.singleShot(800, app.quit)
     return app.exec()
 
 if __name__ == "__main__":
