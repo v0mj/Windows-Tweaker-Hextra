@@ -244,7 +244,7 @@ def _ensure_elevated_start():
 
 try:
     from PyQt6.QtCore    import Qt, QTimer, QThread, QAbstractAnimation, QPropertyAnimation, QEasingCurve, QParallelAnimationGroup, QSequentialAnimationGroup, pyqtSignal, pyqtProperty, QRectF, QPointF, QPoint, QSize
-    from PyQt6.QtGui     import QColor, QPainter, QPen, QBrush, QPainterPath, QRegion, QFont, QFontDatabase, QIcon, QFontMetrics, QPixmap
+    from PyQt6.QtGui     import QColor, QPainter, QPen, QBrush, QPainterPath, QRegion, QFont, QFontDatabase, QIcon, QFontMetrics, QPixmap, QRadialGradient
     from PyQt6.QtWidgets import (QApplication, QWidget, QDialog, QVBoxLayout, QHBoxLayout, QLabel,
                                   QFrame, QPushButton, QStackedWidget, QColorDialog, QGridLayout,
                                   QLineEdit, QScrollArea, QFileDialog,
@@ -914,6 +914,179 @@ def _rgba(color, alpha):
     c = QColor(color)
     a = max(0, min(255, int(alpha)))
     return f"rgba({c.red()}, {c.green()}, {c.blue()}, {a})"
+
+HOLO_BG = "#020617"
+HOLO_CYAN = "#22d3ee"
+HOLO_PURPLE = "#a855f7"
+HOLO_PINK = "#fb2d73"
+HOLO_GREEN = "#34d399"
+HOLO_AMBER = "#fbbf24"
+HOLO_TEXT = "#e0f7ff"
+HOLO_MUTED = "#7894a8"
+HOLO_LINE = _rgba(HOLO_CYAN, 56)
+HOLO_PANEL_TOP = _rgba("#081226", 198)
+HOLO_PANEL_BOTTOM = _rgba("#020617", 174)
+
+def _holo_accent(ac=None):
+    color = QColor(ac or HOLO_CYAN)
+    return color.name() if color.isValid() else HOLO_CYAN
+
+def _holo_secondary(ac=None):
+    color = QColor(_holo_accent(ac))
+    h, s, l, _ = color.getHslF()
+    return QColor.fromHslF((h + 0.12) % 1.0, min(1.0, max(0.35, s * 1.04)), min(0.72, max(0.44, l * 1.04))).name()
+
+def hologram_panel_style(radius=30, accent=None):
+    accent = _holo_accent(accent)
+    return (
+        "QFrame{"
+        f"background:qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 {HOLO_PANEL_TOP},stop:1 {HOLO_PANEL_BOTTOM});"
+        f"border:1px solid {_rgba(accent, 56)};"
+        f"border-radius:{radius}px;"
+        "}"
+    )
+
+def hologram_plain_label(size=14, color=HOLO_TEXT, weight=500, spacing=0):
+    return (
+        f"color:{color};"
+        f"font-family:'{UI_FONT}';"
+        f"font-size:{size}px;"
+        f"font-weight:{weight};"
+        f"letter-spacing:{spacing}px;"
+        "border:none;"
+        "background:transparent;"
+    )
+
+def hologram_badge_style(color=HOLO_CYAN):
+    color = _holo_accent(color)
+    return (
+        "QLabel{"
+        f"background:{_rgba(color, 18)};"
+        f"color:{color};"
+        f"border:1px solid {_rgba(color, 70)};"
+        "border-radius:8px;"
+        f"font-family:'{MONO_FONT}';"
+        "font-size:10px;"
+        "font-weight:700;"
+        "padding:4px 8px;"
+        "}"
+    )
+
+def hologram_input_style(accent=None):
+    accent = _holo_accent(accent)
+    return (
+        "QLineEdit{"
+        f"background:{_rgba('#020617', 172)};"
+        f"color:{HOLO_TEXT};"
+        f"border:1px solid {_rgba(accent, 44)};"
+        "border-radius:10px;"
+        f"font-family:'{UI_FONT}';"
+        "font-size:13px;"
+        "font-weight:500;"
+        "padding:0 14px;"
+        f"selection-background-color:{_rgba(accent, 96)};"
+        "}"
+        "QLineEdit:hover{"
+        f"border-color:{_rgba(accent, 80)};"
+        "}"
+        "QLineEdit:focus{"
+        f"background:{_rgba('#020617', 218)};"
+        f"border-color:{accent};"
+        "}"
+    )
+
+def hologram_button_style(primary=False, accent=None):
+    accent = _holo_accent(accent)
+    if primary:
+        return (
+            "QPushButton{"
+            f"background:{_rgba(accent, 42)};"
+            f"color:{HOLO_TEXT};"
+            f"border:1px solid {accent};"
+            "border-radius:10px;"
+            f"font-family:'{UI_FONT}';"
+            "font-size:12px;"
+            "font-weight:900;"
+            "padding:0 16px;"
+            "}"
+            "QPushButton:hover{"
+            f"background:{_rgba(accent, 64)};"
+            "}"
+            "QPushButton:pressed{"
+            f"background:{_rgba(accent, 86)};"
+            "}"
+            "QPushButton:disabled{"
+            f"background:{_rgba('#020617', 120)};"
+            f"color:{HOLO_MUTED};"
+            f"border-color:{_rgba(accent, 34)};"
+            "}"
+        )
+    return (
+        "QPushButton{"
+        f"background:{_rgba('#020617', 104)};"
+        f"color:{HOLO_MUTED};"
+        f"border:1px solid {_rgba(accent, 38)};"
+        "border-radius:10px;"
+        f"font-family:'{UI_FONT}';"
+        "font-size:12px;"
+        "font-weight:800;"
+        "padding:0 12px;"
+        "}"
+        "QPushButton:hover{"
+        f"color:{HOLO_TEXT};"
+        f"background:{_rgba(accent, 18)};"
+        f"border-color:{_rgba(accent, 92)};"
+        "}"
+        "QPushButton:disabled{"
+        f"color:{_rgba(HOLO_MUTED, 110)};"
+        f"border-color:{_rgba(accent, 22)};"
+        "}"
+    )
+
+def hologram_progress_style(accent=None):
+    accent = _holo_accent(accent)
+    secondary = _holo_secondary(accent)
+    return (
+        "QProgressBar{"
+        f"background:{_rgba('#020617', 164)};"
+        f"border:1px solid {_rgba(accent, 30)};"
+        "border-radius:3px;"
+        "}"
+        "QProgressBar::chunk{"
+        f"background:qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 {accent},stop:1 {secondary});"
+        "border-radius:2px;"
+        "}"
+    )
+
+def paint_hologram_backdrop(painter, rect, width, height, offset_x=0, offset_y=0, accent=None):
+    accent = _holo_accent(accent)
+    secondary = _holo_secondary(accent)
+    accent_color = QColor(accent)
+    secondary_color = QColor(secondary)
+    painter.fillRect(rect, QColor(HOLO_BG))
+
+    top_glow = QRadialGradient(QPointF(width * 0.5 - offset_x, -height * 0.1 - offset_y), max(1, width * 0.55))
+    top_glow.setColorAt(0.0, QColor(accent_color.red(), accent_color.green(), accent_color.blue(), 72))
+    top_glow.setColorAt(0.35, QColor(accent_color.red(), accent_color.green(), accent_color.blue(), 22))
+    top_glow.setColorAt(1.0, QColor(accent_color.red(), accent_color.green(), accent_color.blue(), 0))
+    painter.fillRect(rect, QBrush(top_glow))
+
+    purple_glow = QRadialGradient(QPointF(width * 0.9 - offset_x, height * 0.8 - offset_y), max(1, width * 0.42))
+    purple_glow.setColorAt(0.0, QColor(secondary_color.red(), secondary_color.green(), secondary_color.blue(), 62))
+    purple_glow.setColorAt(0.28, QColor(secondary_color.red(), secondary_color.green(), secondary_color.blue(), 24))
+    purple_glow.setColorAt(1.0, QColor(secondary_color.red(), secondary_color.green(), secondary_color.blue(), 0))
+    painter.fillRect(rect, QBrush(purple_glow))
+
+    painter.setPen(QPen(QColor(accent_color.red(), accent_color.green(), accent_color.blue(), 28), 1))
+    step = 44
+    local_w = rect.width()
+    local_h = rect.height()
+    for x in range(0, width + step, step):
+        lx = x - offset_x
+        painter.drawLine(lx, 0, lx, local_h)
+    for y in range(0, height + step, step):
+        ly = y - offset_y
+        painter.drawLine(0, ly, local_w, ly)
 
 def apply_glass_shadow(widget, accent=None, *, blur=34, y=14, alpha=54):
     if widget is None:
@@ -2876,6 +3049,48 @@ class Toggle(QAbstractButton):
         p.drawEllipse(QRectF(x, y, dia, dia))
         p.end()
 
+class HologramToggle(Toggle):
+    def __init__(self, parent=None):
+        super().__init__(HOLO_CYAN, parent)
+        self.setFixedSize(34, 20)
+
+    def paintEvent(self, _):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        w, h = self.width(), self.height()
+        t = self._t
+
+        off = QColor(2, 6, 23, 210)
+        accent = QColor(self._accent)
+        on = QColor(accent.red(), accent.green(), accent.blue(), 86 if self._hov else 70)
+        bg = QColor(
+            int(off.red() + (on.red() - off.red()) * t),
+            int(off.green() + (on.green() - off.green()) * t),
+            int(off.blue() + (on.blue() - off.blue()) * t),
+            int(off.alpha() + (on.alpha() - off.alpha()) * t),
+        )
+        edge = QColor(accent.red(), accent.green(), accent.blue(), int(48 + 90 * t + (18 if self._hov else 0)))
+        track = QRectF(0.5, 0.5, max(0.0, w - 1.0), max(0.0, h - 1.0))
+        p.setBrush(QBrush(bg))
+        p.setPen(QPen(edge, 1))
+        p.drawRoundedRect(track, track.height() / 2.0, track.height() / 2.0)
+
+        dia = 9.5
+        y = (h - dia) / 2.0
+        margin = 5.0
+        x = margin + (w - (margin * 2.0) - dia) * t
+        knob = QColor(HOLO_TEXT if self._on else HOLO_MUTED)
+        p.setBrush(QBrush(knob))
+        p.setPen(Qt.PenStyle.NoPen)
+        p.drawEllipse(QRectF(x, y, dia, dia))
+        if self._on:
+            glow = QColor(34, 211, 238, 80)
+            p.setBrush(QBrush(glow))
+            p.drawEllipse(QRectF(x - 3, y - 3, dia + 6, dia + 6))
+            p.setBrush(QBrush(QColor(HOLO_TEXT)))
+            p.drawEllipse(QRectF(x, y, dia, dia))
+        p.end()
+
 class SnowCanvas(QWidget):
     _F = [
         (0.05,0.0,0.0018,4,0.0,0.6),(0.12,0.15,0.0012,3,1.2,0.4),(0.22,0.42,0.0021,5,0.7,0.8),
@@ -3202,6 +3417,202 @@ class Sidebar(QFrame):
             f"QPushButton:hover{{background:{PANEL};color:{MAIN};}}"
         )
 
+class HologramSidebar(QFrame):
+    page_selected = pyqtSignal(str)
+
+    def __init__(self, accent, parent=None):
+        super().__init__(parent)
+        self._accent = _holo_accent(accent)
+        self._active = "home"
+        self._nav_btns = {}
+        self._game_detection = {game: False for game in GAME_TAB_KEYS.values()}
+        self.setFixedWidth(310)
+        self.setStyleSheet(hologram_panel_style(30, self._accent))
+
+        root = QVBoxLayout(self)
+        root.setContentsMargins(24, 24, 24, 24)
+        root.setSpacing(0)
+
+        self._brand = QLabel()
+        self._brand.setTextFormat(Qt.TextFormat.RichText)
+        self._brand.setStyleSheet(
+            f"font-family:'{UI_FONT}';font-size:28px;font-weight:900;letter-spacing:1.7px;border:none;background:transparent;"
+        )
+        root.addWidget(self._brand)
+
+        self._mode = QLabel("HOLOGRAM STACK")
+        self._mode.setStyleSheet(hologram_plain_label(12, HOLO_MUTED, 500, 3.0) + "text-transform:uppercase;")
+        root.addWidget(self._mode)
+
+        root.addSpacing(34)
+
+        self._scroll = SmoothScrollArea()
+        self._scroll.setWidgetResizable(True)
+        self._scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self._scroll.setStyleSheet(
+            "QScrollArea{background:transparent;border:none;}"
+            "QScrollBar:vertical{background:transparent;width:6px;border:none;margin:6px 0 6px 0;}"
+            f"QScrollBar::handle:vertical{{background:{_rgba(self._accent, 58)};border:none;border-radius:3px;min-height:26px;}}"
+            "QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical{height:0;}"
+        )
+        content = QWidget()
+        content.setStyleSheet("background:transparent;border:none;")
+        nav = QVBoxLayout(content)
+        nav.setContentsMargins(0, 0, 0, 0)
+        nav.setSpacing(10)
+
+        sections = [
+            ("CORE", [("home", "Core")]),
+            ("PERFORMANCE", [
+                ("tweak:FPS Boost", "FPS Boost"),
+                ("tweak:CPU", "CPU"),
+                ("tweak:GPU", "GPU"),
+                ("tweak:RAM", "RAM"),
+                ("tweak:Input", "Input"),
+                ("tweak:Network", "Network"),
+                ("tweak:Power", "Power"),
+            ]),
+            ("SYSTEM", [
+                ("tweak:Debloat", "Debloat"),
+                ("tweak:Privacy", "Privacy"),
+                ("tweak:Cleanup", "Cleanup"),
+                ("tweak:Visual", "Visual"),
+                ("tweak:Services", "Services"),
+                ("uninstaller", "Uninstaller"),
+            ]),
+            ("GAMES", [
+                ("tweak:Roblox", "Roblox"),
+                ("tweak:FiveM", "FiveM"),
+                ("tweak:Valorant", "Valorant"),
+                ("tweak:CS2", "CS2"),
+                ("tweak:Minecraft", "Minecraft"),
+                ("tweak:Fortnite", "Fortnite"),
+                ("tweak:Apex", "Apex"),
+            ]),
+            ("TOOLS", [
+                ("profiles", "Presets"),
+                ("quick", "Quick Tools"),
+                ("restore", "Recovery"),
+                ("settings", "Settings"),
+            ]),
+        ]
+
+        for section, items in sections:
+            sep = QLabel(section)
+            sep.setStyleSheet(hologram_plain_label(11, HOLO_MUTED, 900, 2.1) + "padding-top:8px;")
+            nav.addWidget(sep)
+            for key, label in items:
+                button = QPushButton(label)
+                button.setFixedHeight(38)
+                button.setCursor(Qt.CursorShape.PointingHandCursor)
+                button.clicked.connect(lambda _=False, k=key: self._select(k))
+                nav.addWidget(button)
+                self._nav_btns[key] = button
+            nav.addSpacing(8)
+        nav.addStretch(1)
+        self._scroll.setWidget(content)
+        root.addWidget(self._scroll, 1)
+
+        self._sys = QFrame()
+        self._sys.setStyleSheet(
+            f"QFrame{{background:transparent;border:none;border-top:1px solid {HOLO_LINE};border-radius:0;}}"
+        )
+        sys_lay = QVBoxLayout(self._sys)
+        sys_lay.setContentsMargins(0, 18, 0, 0)
+        sys_lay.setSpacing(0)
+        self._sys_values = {}
+        for label, value in [("Offline", "YES"), ("Restore", "READY"), ("Queue", "12")]:
+            row = QWidget()
+            row.setStyleSheet("background:transparent;border:none;")
+            row_lay = QHBoxLayout(row)
+            row_lay.setContentsMargins(0, 0, 0, 0)
+            row_lay.setSpacing(8)
+            left = QLabel(label)
+            left.setStyleSheet(hologram_plain_label(14, HOLO_MUTED, 500))
+            right = QLabel(value)
+            right.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            right.setStyleSheet(hologram_plain_label(14, self._accent, 800))
+            row_lay.addWidget(left)
+            row_lay.addStretch(1)
+            row_lay.addWidget(right)
+            sys_lay.addWidget(row)
+            self._sys_values[label.lower()] = right
+        root.addWidget(self._sys)
+
+        self.set_accent(self._accent)
+
+    def _button_style(self, active=False):
+        accent = self._accent
+        if active:
+            return (
+                "QPushButton{"
+                f"background:{_rgba(accent, 20)};"
+                f"color:{HOLO_TEXT};"
+                f"border:1px solid {accent};"
+                "border-radius:18px;"
+                f"font-family:'{UI_FONT}';font-size:14px;font-weight:900;"
+                "text-align:left;"
+                "padding:0 14px;"
+                "}"
+            )
+        return (
+            "QPushButton{"
+            "background:transparent;"
+            f"color:{HOLO_MUTED};"
+            "border:1px solid transparent;"
+            "border-radius:18px;"
+            f"font-family:'{UI_FONT}';font-size:14px;font-weight:900;"
+            "text-align:left;"
+            "padding:0 14px;"
+            "}"
+            "QPushButton:hover{"
+            f"color:{HOLO_TEXT};"
+            f"border-color:{_rgba(accent, 56)};"
+            f"background:{_rgba(accent, 12)};"
+            "}"
+        )
+
+    def _refresh_button_styles(self):
+        for key, button in self._nav_btns.items():
+            button.setStyleSheet(self._button_style(key == self._active))
+
+    def _select(self, key):
+        self._active = key
+        self._refresh_button_styles()
+        self.page_selected.emit(key)
+
+    def set_accent(self, ac):
+        self._accent = _holo_accent(ac)
+        self.setStyleSheet(hologram_panel_style(30, self._accent))
+        self._brand.setText(f"<span style='color:#e0f7ff;'>HEX</span><span style='color:{self._accent};'>TRA</span>")
+        self._scroll.setStyleSheet(
+            "QScrollArea{background:transparent;border:none;}"
+            "QScrollBar:vertical{background:transparent;width:6px;border:none;margin:6px 0 6px 0;}"
+            f"QScrollBar::handle:vertical{{background:{_rgba(self._accent, 58)};border:none;border-radius:3px;min-height:26px;}}"
+            "QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical{height:0;}"
+        )
+        for label, value in self._sys_values.items():
+            if label != "restore":
+                value.setStyleSheet(hologram_plain_label(14, self._accent, 800))
+        self._refresh_button_styles()
+
+    def refresh_game_detection(self):
+        self._refresh_button_styles()
+
+    def set_account_summary(self, name, plan, online=True):
+        if "offline" in self._sys_values:
+            self._sys_values["offline"].setText("YES")
+        if "restore" in self._sys_values:
+            restore_ready = has_restore_point()
+            self._sys_values["restore"].setText("READY" if restore_ready else "MISSING")
+            self._sys_values["restore"].setStyleSheet(
+                hologram_plain_label(14, HOLO_GREEN if restore_ready else HOLO_PINK, 800)
+            )
+        if "queue" in self._sys_values:
+            self._sys_values["queue"].setText("12")
+
 class RestoreWarnDialog(QWidget):
     confirmed  = pyqtSignal()
     go_restore = pyqtSignal()
@@ -3210,31 +3621,42 @@ class RestoreWarnDialog(QWidget):
         super().__init__(parent, Qt.WindowType.Dialog | Qt.WindowType.FramelessWindowHint)
         self.setWindowModality(Qt.WindowModality.ApplicationModal)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-        self.setFixedWidth(360)
-        self.setStyleSheet(f"QWidget{{background:{CARD};border:1px solid {REPLICA['line_soft']};border-radius:12px;}}")
+        self.setObjectName("RestoreWarnDialog")
+        self.setFixedWidth(410)
+        self.setStyleSheet(
+            "QWidget#RestoreWarnDialog{"
+            f"background:qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 {HOLO_PANEL_TOP},stop:1 {HOLO_PANEL_BOTTOM});"
+            f"border:1px solid {_rgba(HOLO_PINK, 96)};"
+            "border-radius:20px;"
+            "}"
+        )
         lay = QVBoxLayout(self); lay.setContentsMargins(24,22,24,22); lay.setSpacing(14)
 
-        icon = QLabel("!"); icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        icon.setStyleSheet("font:28px;border:none;background:transparent;")
+        icon = QLabel("MISSING"); icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        icon.setStyleSheet(hologram_badge_style(HOLO_PINK))
         lay.addWidget(icon)
 
         title = QLabel("No Restore Point")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title.setStyleSheet(f"color:{MAIN};font:700 15pt '{TITLE_FONT}';border:none;background:transparent;")
+        title.setStyleSheet(
+            f"color:{HOLO_TEXT};font-family:'{UI_FONT}';font-size:22px;font-weight:800;border:none;background:transparent;"
+        )
         lay.addWidget(title)
 
         msg = QLabel("You have not created a restore point yet.\nIf something goes wrong, undoing changes will be harder.\n\nCreate one first or continue anyway.")
         msg.setAlignment(Qt.AlignmentFlag.AlignCenter); msg.setWordWrap(True)
-        msg.setStyleSheet(f"color:{MAIN};font:500 10pt '{UI_FONT}';border:none;background:transparent;")
+        msg.setStyleSheet(
+            f"color:{HOLO_MUTED};font-family:'{UI_FONT}';font-size:13px;font-weight:500;border:none;background:transparent;"
+        )
         lay.addWidget(msg)
 
         row = QHBoxLayout(); row.setSpacing(8)
         a = QPushButton("Create One First"); a.setFixedHeight(34); a.setCursor(Qt.CursorShape.PointingHandCursor)
-        a.setStyleSheet(_solid(accent))
+        a.setStyleSheet(hologram_button_style(True))
         a.clicked.connect(lambda: (self.go_restore.emit(), self.close()))
 
         b = QPushButton("Continue Anyway"); b.setFixedHeight(34); b.setCursor(Qt.CursorShape.PointingHandCursor)
-        b.setStyleSheet(_ghost(accent))
+        b.setStyleSheet(hologram_button_style(False))
         b.clicked.connect(lambda: (self.confirmed.emit(), self.close()))
 
         row.addWidget(a, 1); row.addWidget(b, 1); lay.addLayout(row)
@@ -3357,7 +3779,7 @@ class TweakPage(QWidget):
         self._worker = None
         self._plan_active = False
         self._rows = []
-        root = QVBoxLayout(self); root.setContentsMargins(32,28,32,0); root.setSpacing(0)
+        root = QVBoxLayout(self); root.setContentsMargins(28,28,28,0); root.setSpacing(0)
 
         hdr = QFrame()
         self._hdr = hdr
@@ -3367,33 +3789,38 @@ class TweakPage(QWidget):
         top = QHBoxLayout(); top.setContentsMargins(0,0,0,0); top.setSpacing(8)
         title_col = QVBoxLayout(); title_col.setContentsMargins(0,0,0,0); title_col.setSpacing(2)
         self._section_lbl = QLabel(self._section_caption())
-        self._section_lbl.setStyleSheet(f"color:{MID};font:11px '{MONO_FONT}';border:none;")
+        self._section_lbl.setStyleSheet(
+            f"color:{HOLO_MUTED};font:500 11px '{MONO_FONT}';border:none;background:transparent;"
+        )
         self._cat_lbl = QLabel(self._title)
-        self._cat_lbl.setStyleSheet(replica_title_style())
+        self._cat_lbl.setStyleSheet(
+            f"color:{HOLO_TEXT};font-family:'{UI_FONT}';font-size:25px;font-weight:300;border:none;background:transparent;"
+        )
         title_col.addWidget(self._cat_lbl)
         title_col.addWidget(self._section_lbl)
         top.addLayout(title_col)
         top.addStretch()
         self._count_lbl = QLabel("0 tweaks")
-        self._count_lbl.setStyleSheet(replica_badge_style("cyan"))
-        self._count_lbl.hide()
+        self._count_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._count_lbl.setStyleSheet(hologram_badge_style(ac))
+        top.addWidget(self._count_lbl, 0, Qt.AlignmentFlag.AlignTop)
         hl.addLayout(top)
         self._summary = _lbl("", MID, size=10)
         self._summary.hide()
         self._search = QLineEdit()
         self._search.setPlaceholderText("filter tweaks...")
-        self._search.setFixedHeight(34)
+        self._search.setFixedHeight(38)
         self._search.setClearButtonEnabled(True)
-        self._search.setStyleSheet(replica_input_style(ac))
+        self._search.setStyleSheet(hologram_input_style(ac))
         self._search.textChanged.connect(self._apply_filters)
-        tools = QHBoxLayout(); tools.setContentsMargins(0,20,0,0); tools.setSpacing(8)
+        tools = QHBoxLayout(); tools.setContentsMargins(0,18,0,10); tools.setSpacing(8)
         tools.addWidget(self._search, 1)
         for label, fn, attr in [("all", lambda: self._set_all(True), "_all_btn"),
                                 ("none", lambda: self._set_all(False), "_none_btn"),
                                 ("check", self._refresh_statuses, "_status_btn")]:
-            width = 68 if label == "check" else 62
-            b = QPushButton(label); b.setFixedSize(width, 34); b.setCursor(Qt.CursorShape.PointingHandCursor)
-            b.setStyleSheet(_ghost(ac)); b.clicked.connect(fn); tools.addWidget(b)
+            width = 74 if label == "check" else 66
+            b = QPushButton(label); b.setFixedSize(width, 38); b.setCursor(Qt.CursorShape.PointingHandCursor)
+            b.setStyleSheet(hologram_button_style(False, ac)); b.clicked.connect(fn); tools.addWidget(b)
             setattr(self, attr, b)
         hl.addLayout(tools)
         root.addWidget(hdr)
@@ -3402,25 +3829,30 @@ class TweakPage(QWidget):
         sc.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         sc.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         sc.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        sc.setStyleSheet(f"QScrollArea{{border:none;background:{BG};}}"
+        sc.setStyleSheet(f"QScrollArea{{border:none;background:transparent;}}"
                          f"QScrollBar:vertical{{background:transparent;width:7px;border:none;margin:6px 0 6px 0;}}"
-                         f"QScrollBar::handle:vertical{{background:{_rgba('#dfe7f6', 60)};border:1px solid {_rgba('#ffffff', 36)};border-radius:3px;min-height:26px;}}"
+                         f"QScrollBar::handle:vertical{{background:{_rgba(ac, 62)};border:1px solid {_rgba(ac, 82)};border-radius:3px;min-height:26px;}}"
                          f"QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical{{height:0;}}")
         self._sc = sc
         cw = QWidget(); cw.setStyleSheet(f"background:transparent;")
         cw.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.MinimumExpanding)
         self._cw = cw
-        lst = QVBoxLayout(cw); lst.setContentsMargins(0,20,0,0); lst.setSpacing(1)
+        lst = QVBoxLayout(cw); lst.setContentsMargins(0,16,0,4); lst.setSpacing(6)
         self._lst = lst
         sc.setWidget(cw); root.addWidget(sc, 1)
 
-        bot = QWidget(); bot.setFixedHeight(66)
+        bot = QWidget(); bot.setFixedHeight(62)
         bot.setStyleSheet("background:transparent;border:none;")
-        bl = QHBoxLayout(bot); bl.setContentsMargins(0,18,0,0); bl.setSpacing(10)
-        self._stat = QLabel("0 selected"); self._stat.setStyleSheet(f"color:{DIM};font:11px '{MONO_FONT}';border:none;")
-        self._prog = _prog_bar(ac); self._prog.setFixedWidth(120); self._prog.setVisible(True)
-        self._abtn = QPushButton("apply selected"); self._abtn.setFixedSize(126, 34)
-        self._abtn.setCursor(Qt.CursorShape.PointingHandCursor); self._abtn.setStyleSheet(_solid(ac))
+        bl = QHBoxLayout(bot); bl.setContentsMargins(0,12,0,0); bl.setSpacing(12)
+        self._stat = QLabel("0 selected")
+        self._stat.setStyleSheet(
+            f"color:{HOLO_MUTED};font:500 11px '{MONO_FONT}';border:none;background:transparent;"
+        )
+        self._prog = _prog_bar(ac); self._prog.setFixedWidth(156); self._prog.setFixedHeight(6)
+        self._prog.setStyleSheet(hologram_progress_style(ac))
+        self._prog.setVisible(True)
+        self._abtn = QPushButton("apply selected"); self._abtn.setFixedSize(144, 38)
+        self._abtn.setCursor(Qt.CursorShape.PointingHandCursor); self._abtn.setStyleSheet(hologram_button_style(True, ac))
         self._abtn.clicked.connect(self._apply)
         bl.addWidget(self._stat)
         bl.addWidget(self._prog)
@@ -3459,47 +3891,87 @@ class TweakPage(QWidget):
                 widget.deleteLater()
 
     def _status_style(self, color):
-        return f"background:{color};border:none;border-radius:3px;"
+        return (
+            f"background:{color};"
+            f"border:1px solid {_rgba('#ffffff', 52)};"
+            "border-radius:4px;"
+        )
 
     def _restart_style(self):
-        return f"color:{MID};font:10px '{MONO_FONT}';border:1px solid {LINE};border-radius:2px;padding:2px 6px;background:transparent;"
+        accent = self._get_ac()
+        return (
+            f"color:{HOLO_MUTED};"
+            f"font:700 10px '{MONO_FONT}';"
+            f"border:1px solid {_rgba(accent, 36)};"
+            "border-radius:7px;"
+            "padding:3px 7px;"
+            f"background:{_rgba('#020617', 116)};"
+        )
 
     def _make_tip_button(self, tip, color):
         is_warn = "[!]" in tip or "warning:" in str(tip).lower()
         qb = QPushButton("!" if is_warn else "?")
         qb.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         qb.setFixedSize(24, 24); qb.setCursor(Qt.CursorShape.PointingHandCursor); qb.setToolTip(tip)
-        bc = MAIN if is_warn else MID
-        bbo = REPLICA["line_soft"]
-        hover = MAIN
-        qb.setStyleSheet(f"QPushButton{{background:transparent;color:{bc};border:1px solid {bbo};border-radius:12px;font:700 8pt '{UI_FONT}';}}"
-                         f"QPushButton:hover{{color:{hover};border-color:{hover};}}")
+        bc = HOLO_PINK if is_warn else HOLO_MUTED
+        hover = HOLO_TEXT
+        accent = self._get_ac()
+        qb.setStyleSheet(
+            f"QPushButton{{background:{_rgba('#020617', 120)};color:{bc};border:1px solid {_rgba(accent, 36)};border-radius:12px;font:700 8pt '{UI_FONT}';}}"
+            f"QPushButton:hover{{color:{hover};border-color:{accent};background:{_rgba(accent, 18)};}}"
+        )
         return qb
+
+    def _row_style(self, active=False):
+        accent = self._get_ac()
+        bg = _rgba("#020617", 184)
+        edge = _rgba(accent, 92 if active else 34)
+        hover_bg = _rgba(accent, 18 if active else 12)
+        hover_edge = _rgba(accent, 128 if active else 78)
+        glow = _rgba(accent, 20 if active else 0)
+        return (
+            "QFrame#HologramTweakRow{"
+            f"background:{bg};"
+            f"border:1px solid {edge};"
+            "border-radius:11px;"
+            "}"
+            "QFrame#HologramTweakRow:hover{"
+            f"background:{hover_bg};"
+            f"border-color:{hover_edge};"
+            "}"
+            f"QFrame#HologramTweakRow[active=\"true\"]{{background:{glow};}}"
+        )
+
+    def _apply_row_visual(self, row):
+        if not row:
+            return
+        active = bool(row["toggle"].isChecked())
+        row["row"].setProperty("active", "true" if active else "false")
+        row["row"].setStyleSheet(self._row_style(active))
 
     def _build_entries(self):
         self._clear_rows()
         self._rows = []
         self._sw = []
-        ac = self._get_ac()
         selected = load_selected_tweaks()
         entries = list(self._provider())
         self._entries = entries
         for i, entry in enumerate(entries):
-            row = QFrame(); row.setFixedHeight(72)
-            row.setStyleSheet(
-                f"QFrame{{background:{PANEL};border:none;border-radius:3px;}}"
-                f"QFrame:hover{{background:{SURFACE2};}}"
-            )
-            rl = QHBoxLayout(row); rl.setContentsMargins(14,10,14,10); rl.setSpacing(12)
+            row = QFrame(); row.setObjectName("HologramTweakRow"); row.setFixedHeight(64)
+            rl = QHBoxLayout(row); rl.setContentsMargins(14,6,16,6); rl.setSpacing(14)
 
-            sw = Toggle(ac); sw.setChecked(entry["id"] in selected); rl.addWidget(sw)
+            sw = HologramToggle(); sw.set_accent(self._get_ac()); sw.setChecked(entry["id"] in selected); rl.addWidget(sw)
+            row.setProperty("active", "true" if sw.isChecked() else "false")
+            row.setStyleSheet(self._row_style(sw.isChecked()))
 
-            name_lbl = FitLabel(entry["name"], color=MAIN, size=13)
+            name_lbl = FitLabel(entry["name"], color=HOLO_TEXT, size=13)
             desc_lbl = QLabel(f"{str(entry.get('category', '')).lower()} / {str(entry.get('desc', '')).lower()}")
             desc_lbl.setWordWrap(True)
             desc_lbl.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
-            desc_lbl.setMinimumHeight(26)
-            desc_lbl.setStyleSheet(f"color:{DIM};font:12px '{MONO_FONT}';border:none;background:transparent;")
+            desc_lbl.setMinimumHeight(22)
+            desc_lbl.setStyleSheet(
+                f"color:{HOLO_MUTED};font:500 12px '{MONO_FONT}';border:none;background:transparent;"
+            )
             text_col = QVBoxLayout()
             text_col.setContentsMargins(0,0,0,0)
             text_col.setSpacing(2)
@@ -3508,7 +3980,7 @@ class TweakPage(QWidget):
             rl.addLayout(text_col, 1)
 
             status_lbl = QLabel("")
-            status_lbl.setFixedSize(6, 6)
+            status_lbl.setFixedSize(8, 8)
             status_lbl.setToolTip("Unknown")
             status_lbl.setStyleSheet(self._status_style("#4b5563"))
 
@@ -3541,6 +4013,7 @@ class TweakPage(QWidget):
         changed = set(load_selected_tweaks())
         for row in self._rows:
             row["toggle"].setChecked(enabled)
+            self._apply_row_visual(row)
             if enabled:
                 changed.add(row["entry"]["id"])
             else:
@@ -3551,6 +4024,10 @@ class TweakPage(QWidget):
 
     def _on_toggle(self, tweak_id, enabled):
         set_tweak_selected(tweak_id, enabled)
+        for row in self._rows:
+            if row["entry"]["id"] == tweak_id:
+                self._apply_row_visual(row)
+                break
         self._update_apply_info()
         self.catalog_changed.emit()
 
@@ -3564,13 +4041,19 @@ class TweakPage(QWidget):
             row["row"].setVisible(visible)
             shown += 1 if visible else 0
         total = len(self._rows)
-        self._section_lbl.setText(f"{self._section_caption().lower()} / {total} tweaks")
-        self._count_lbl.setText(f"{shown}/{len(self._rows)} tweaks" if query else f"{len(self._rows)} tweaks")
+        self._section_lbl.setText(
+            f"{self._section_caption().lower()} / {shown} of {total} visible" if query
+            else f"{self._section_caption().lower()} / {total} tweaks"
+        )
+        self._count_lbl.setText(f"{shown}/{total}" if query else f"{total} tweaks")
 
     def _update_apply_info(self):
         selected = len(self._selected_entries())
         total = max(1, len(self._rows))
         self._stat.setText(f"{selected} selected")
+        self._stat.setStyleSheet(
+            f"color:{HOLO_MUTED};font:500 11px '{MONO_FONT}';border:none;background:transparent;"
+        )
         self._prog.setValue(int((selected / total) * 100))
 
     def activate(self):
@@ -3614,7 +4097,9 @@ class TweakPage(QWidget):
         if not sel: return
         if not self._plan_active:
             self._stat.setText("redeem a key to unlock tweaks.")
-            self._stat.setStyleSheet(f"color:{MID};font:11px '{MONO_FONT}';border:none;")
+            self._stat.setStyleSheet(
+                f"color:{HOLO_MUTED};font:500 11px '{MONO_FONT}';border:none;background:transparent;"
+            )
             return
         if not has_restore_point():
             dlg = RestoreWarnDialog(self._get_ac(), self)
@@ -3636,7 +4121,7 @@ class TweakPage(QWidget):
         ac = self._get_ac()
         self._abtn.setEnabled(False); self._abtn.setText("working...")
         self._prog.setVisible(True); self._prog.setValue(0)
-        self._prog.setStyleSheet(_prog_bar(ac).styleSheet())
+        self._prog.setStyleSheet(hologram_progress_style(self._get_ac()))
         self._worker = TweakWorker(sel)
         self._worker.progress.connect(lambda i,n,nm: (self._prog.setValue(int(i/n*100)), self._stat.setText(str(nm).lower())))
         self._worker.detail.connect(lambda txt: self._stat.setText(str(txt).lower()))
@@ -3652,7 +4137,9 @@ class TweakPage(QWidget):
         elif "relaunch game" in hints or "relaunch app" in hints:
             msg = "Done. Restart the game or app."
         self._prog.setValue(100); self._stat.setText(msg)
-        self._stat.setStyleSheet(f"color:{MID};font:11px '{MONO_FONT}';border:none;")
+        self._stat.setStyleSheet(
+            f"color:{HOLO_MUTED};font:500 11px '{MONO_FONT}';border:none;background:transparent;"
+        )
         self._abtn.setEnabled(True); self._abtn.setText("apply selected")
         self._refresh_statuses()
         self.tweaks_applied.emit()
@@ -3661,20 +4148,25 @@ class TweakPage(QWidget):
 
     def update_accent(self, color):
         self._hdr.setStyleSheet("QFrame{background:transparent;border:none;}")
-        self._section_lbl.setStyleSheet(f"color:{MID};font:11px '{MONO_FONT}';border:none;")
-        self._cat_lbl.setStyleSheet(replica_title_style())
-        self._count_lbl.setStyleSheet(replica_badge_style("cyan"))
-        self._search.setStyleSheet(replica_input_style(color))
+        self._section_lbl.setStyleSheet(
+            f"color:{HOLO_MUTED};font:500 11px '{MONO_FONT}';border:none;background:transparent;"
+        )
+        self._cat_lbl.setStyleSheet(
+            f"color:{HOLO_TEXT};font-family:'{UI_FONT}';font-size:25px;font-weight:300;border:none;background:transparent;"
+        )
+        self._count_lbl.setStyleSheet(hologram_badge_style(color))
+        self._search.setStyleSheet(hologram_input_style(color))
+        self._sc.setStyleSheet(f"QScrollArea{{border:none;background:transparent;}}"
+                         f"QScrollBar:vertical{{background:transparent;width:7px;border:none;margin:6px 0 6px 0;}}"
+                         f"QScrollBar::handle:vertical{{background:{_rgba(color, 62)};border:1px solid {_rgba(color, 82)};border-radius:3px;min-height:26px;}}"
+                         f"QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical{{height:0;}}")
         for btn_name in ["_all_btn", "_none_btn", "_status_btn"]:
-            getattr(self, btn_name).setStyleSheet(_ghost(color))
-        self._abtn.setStyleSheet(_solid(color))
-        self._prog.setStyleSheet(_prog_bar(color).styleSheet())
+            getattr(self, btn_name).setStyleSheet(hologram_button_style(False, color))
+        self._abtn.setStyleSheet(hologram_button_style(True, color))
+        self._prog.setStyleSheet(hologram_progress_style(color))
         for idx, row in enumerate(self._rows):
             row["toggle"].set_accent(color)
-            row["row"].setStyleSheet(
-                f"QFrame{{background:{PANEL};border:none;border-radius:3px;}}"
-                f"QFrame:hover{{background:{SURFACE2};}}"
-            )
+            self._apply_row_visual(row)
 
     def set_plan_active(self, active):
         self._plan_active = bool(active)
@@ -3682,6 +4174,9 @@ class TweakPage(QWidget):
         if not active:
             self._abtn.setText("locked")
             self._stat.setText("redeem a key to unlock this page.")
+            self._stat.setStyleSheet(
+                f"color:{HOLO_MUTED};font:500 11px '{MONO_FONT}';border:none;background:transparent;"
+            )
         else:
             self._abtn.setText("apply selected")
             self._update_apply_info()
@@ -4809,37 +5304,48 @@ class ProfilesPage(QWidget):
 
     def __init__(self, get_ac, parent=None):
         super().__init__(parent); self._get_ac = get_ac; self._worker = None; self._plan_active = False
-        self.setStyleSheet(f"background:{BG};")
-        root = QVBoxLayout(self); root.setContentsMargins(18,16,18,16); root.setSpacing(12)
+        self._cards = []
+        self.setStyleSheet("background:transparent;border:none;")
+        root = QVBoxLayout(self); root.setContentsMargins(28,28,28,0); root.setSpacing(12)
         self._title = QLabel("Presets")
-        self._title.setStyleSheet(replica_title_style())
-        self._summary = _lbl("", MID, size=10)
+        self._title.setStyleSheet(
+            f"color:{HOLO_TEXT};font-family:'{UI_FONT}';font-size:25px;font-weight:300;border:none;background:transparent;"
+        )
+        self._summary = QLabel("")
+        self._summary.setStyleSheet(f"color:{HOLO_MUTED};font:500 11px '{MONO_FONT}';border:none;background:transparent;")
         root.addWidget(self._title)
         root.addWidget(self._summary)
 
-        top = QFrame(); self._hero_card = top; top.setStyleSheet(replica_hero_style(self._get_ac()))
-        tl = QVBoxLayout(top); tl.setContentsMargins(18,18,18,18); tl.setSpacing(12)
+        top = QFrame(); self._hero_card = top; top.setStyleSheet(hologram_panel_style(20, self._get_ac()))
+        tl = QVBoxLayout(top); tl.setContentsMargins(20,18,20,18); tl.setSpacing(12)
         cap = QLabel("PRESET LIBRARY")
-        cap.setStyleSheet(replica_section_caption(self._get_ac()))
+        cap.setStyleSheet(hologram_plain_label(11, self._get_ac(), 900, 2.0))
         tl.addWidget(cap)
-        tl.addWidget(_lbl("Load built-in packs or save your own reusable tweak selection.", MID, size=10))
+        hint = QLabel("Load built-in packs or save your own reusable tweak selection.")
+        hint.setWordWrap(True)
+        hint.setStyleSheet(f"color:{HOLO_MUTED};font:500 12px '{MONO_FONT}';border:none;background:transparent;")
+        tl.addWidget(hint)
         row = QHBoxLayout(); row.setSpacing(8)
         self._name = QLineEdit(); self._name.setPlaceholderText("Profile name"); self._name.setFixedHeight(38)
-        self._name.setStyleSheet(replica_input_style(self._get_ac()))
-        self._save_btn = QPushButton("Save Selection"); self._save_btn.setFixedHeight(38); self._save_btn.setStyleSheet(_solid(self._get_ac())); self._save_btn.clicked.connect(self._save_current)
+        self._name.setStyleSheet(hologram_input_style(self._get_ac()))
+        self._save_btn = QPushButton("Save Selection"); self._save_btn.setFixedHeight(38); self._save_btn.setStyleSheet(hologram_button_style(True, self._get_ac())); self._save_btn.clicked.connect(self._save_current)
         row.addWidget(self._name, 1); row.addWidget(self._save_btn)
         tl.addLayout(row)
         root.addWidget(top)
 
         self._scroll = SmoothScrollArea(); self._scroll.setWidgetResizable(True); self._scroll.setFrameShape(QFrame.Shape.NoFrame)
-        self._scroll.setStyleSheet(f"QScrollArea{{border:none;background:{BG};}}")
-        holder = QWidget(); holder.setStyleSheet(f"background:{BG};")
-        self._list = QVBoxLayout(holder); self._list.setContentsMargins(0,0,0,0); self._list.setSpacing(6)
+        self._scroll.setStyleSheet(f"QScrollArea{{border:none;background:transparent;}}"
+                         f"QScrollBar:vertical{{background:transparent;width:7px;border:none;margin:6px 0 6px 0;}}"
+                         f"QScrollBar::handle:vertical{{background:{_rgba(self._get_ac(), 62)};border:1px solid {_rgba(self._get_ac(), 82)};border-radius:3px;min-height:26px;}}"
+                         f"QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical{{height:0;}}")
+        holder = QWidget(); holder.setStyleSheet("background:transparent;border:none;")
+        self._list = QVBoxLayout(holder); self._list.setContentsMargins(0,0,4,0); self._list.setSpacing(8)
         self._scroll.setWidget(holder)
         root.addWidget(self._scroll, 1)
 
         self._prog = _prog_bar(self._get_ac()); self._prog.setVisible(False)
-        self._stat = QLabel(""); self._stat.setStyleSheet(f"color:{MID};font:600 9pt '{UI_FONT}';")
+        self._prog.setStyleSheet(hologram_progress_style(self._get_ac()))
+        self._stat = QLabel(""); self._stat.setStyleSheet(f"color:{HOLO_MUTED};font:500 11px '{MONO_FONT}';border:none;background:transparent;")
         root.addWidget(self._prog); root.addWidget(self._stat)
         self._refresh()
 
@@ -4967,68 +5473,90 @@ class ProfilesPage(QWidget):
 
     def _refresh(self):
         self._clear_rows()
+        self._cards = []
         profiles = load_profiles()
         presets = builtin_presets()
         self._summary.setText(f"{len(load_selected_tweaks())} selected tweaks | {len(profiles)} saved profiles | {len(presets)} preset packs")
 
         preset_cap = QLabel("Preset Packs")
-        preset_cap.setStyleSheet(f"color:{DIM};font:500 9px '{MONO_FONT}';letter-spacing:1.5px;border:none;background:transparent;")
+        preset_cap.setStyleSheet(hologram_plain_label(11, self._get_ac(), 900, 2.0))
         self._list.addWidget(preset_cap)
         self._list.addSpacing(6)
 
         for preset in presets:
-            row = QFrame(); row.setStyleSheet(replica_card_style(REPLICA["line_soft"], radius=14, alt=True))
+            row = QFrame(); row.setStyleSheet(hologram_panel_style(16, self._get_ac()))
             rl = QHBoxLayout(row); rl.setContentsMargins(14,12,14,12); rl.setSpacing(10)
             title = QVBoxLayout(); title.setContentsMargins(0,0,0,0); title.setSpacing(4)
-            title.addWidget(_lbl(preset["title"], MAIN, bold=True, size=11))
-            title.addWidget(_lbl(f"{preset['count']} tweaks | {preset['desc']}", MID, size=10))
+            name = QLabel(preset["title"])
+            name.setStyleSheet(f"color:{HOLO_TEXT};font:800 13px '{UI_FONT}';border:none;background:transparent;")
+            desc = QLabel(f"{preset['count']} tweaks | {preset['desc']}")
+            desc.setWordWrap(True)
+            desc.setStyleSheet(f"color:{HOLO_MUTED};font:500 11px '{MONO_FONT}';border:none;background:transparent;")
+            title.addWidget(name)
+            title.addWidget(desc)
             rl.addLayout(title, 1)
             btn = QPushButton("Load")
             btn.setFixedHeight(32)
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn.setStyleSheet(_ghost(self._get_ac()))
+            btn.setStyleSheet(hologram_button_style(False, self._get_ac()))
             btn.setEnabled(self._plan_active)
             btn.setToolTip("" if self._plan_active else "Active plan required.")
             btn.clicked.connect(lambda _=False, pid=preset["id"]: self._load_builtin_preset(pid))
             rl.addWidget(btn)
             self._list.addWidget(row)
+            self._cards.append(row)
 
         self._list.addSpacing(10)
         saved_cap = QLabel("Saved Profiles")
-        saved_cap.setStyleSheet(f"color:{DIM};font:500 9px '{MONO_FONT}';letter-spacing:1.5px;border:none;background:transparent;")
+        saved_cap.setStyleSheet(hologram_plain_label(11, self._get_ac(), 900, 2.0))
         self._list.addWidget(saved_cap)
         self._list.addSpacing(6)
 
         if not profiles:
-            empty = QFrame(); empty.setStyleSheet(replica_card_style(REPLICA["line_soft"], radius=14, alt=True))
+            empty = QFrame(); empty.setStyleSheet(hologram_panel_style(16, self._get_ac()))
             el = QVBoxLayout(empty); el.setContentsMargins(16,16,16,16); el.setSpacing(6)
-            el.addWidget(_lbl("No profiles saved yet.", MAIN, bold=True, size=11))
-            el.addWidget(_lbl("Save a selection above to build a reusable loadout for different games or workflows.", MID, size=10))
+            title = QLabel("No profiles saved yet.")
+            title.setStyleSheet(f"color:{HOLO_TEXT};font:800 13px '{UI_FONT}';border:none;background:transparent;")
+            text = QLabel("Save a selection above to build a reusable loadout for different games or workflows.")
+            text.setWordWrap(True)
+            text.setStyleSheet(f"color:{HOLO_MUTED};font:500 11px '{MONO_FONT}';border:none;background:transparent;")
+            el.addWidget(title)
+            el.addWidget(text)
             self._list.addWidget(empty)
+            self._cards.append(empty)
             self._list.addStretch()
             return
         for name, info in sorted(profiles.items()):
-            row = QFrame(); row.setStyleSheet(replica_card_style(REPLICA["line_soft"], radius=14, alt=True))
+            row = QFrame(); row.setStyleSheet(hologram_panel_style(16, self._get_ac()))
             rl = QHBoxLayout(row); rl.setContentsMargins(14,12,14,12); rl.setSpacing(10)
             title = QVBoxLayout(); title.setContentsMargins(0,0,0,0); title.setSpacing(4)
-            title.addWidget(_lbl(name, MAIN, bold=True, size=11))
-            title.addWidget(_lbl(f"{len(info.get('tweaks', []))} tweaks saved", MID, size=10))
+            name_lbl = QLabel(name)
+            name_lbl.setStyleSheet(f"color:{HOLO_TEXT};font:800 13px '{UI_FONT}';border:none;background:transparent;")
+            count_lbl = QLabel(f"{len(info.get('tweaks', []))} tweaks saved")
+            count_lbl.setStyleSheet(f"color:{HOLO_MUTED};font:500 11px '{MONO_FONT}';border:none;background:transparent;")
+            title.addWidget(name_lbl)
+            title.addWidget(count_lbl)
             rl.addLayout(title, 1)
             for label, fn, style in [
-                ("Load", lambda _=False, n=name: self._load_profile(n), _ghost(self._get_ac())),
-                ("Apply", lambda _=False, n=name: self._apply_profile(n), _solid(self._get_ac())),
+                ("Load", lambda _=False, n=name: self._load_profile(n), hologram_button_style(False, self._get_ac())),
+                ("Apply", lambda _=False, n=name: self._apply_profile(n), hologram_button_style(True, self._get_ac())),
                 ("Delete", lambda _=False, n=name: self._delete_profile(n), _danger()),
             ]:
                 btn = QPushButton(label); btn.setFixedHeight(32); btn.setCursor(Qt.CursorShape.PointingHandCursor); btn.setStyleSheet(style); btn.clicked.connect(fn)
                 rl.addWidget(btn)
             self._list.addWidget(row)
+            self._cards.append(row)
         self._list.addStretch()
 
     def update_accent(self, color):
-        self._title.setStyleSheet(replica_title_style())
-        self._save_btn.setStyleSheet(_solid(color))
-        self._name.setStyleSheet(replica_input_style(color))
-        self._prog.setStyleSheet(f"QProgressBar{{background:{REPLICA['surface_alt']};border:none;border-radius:2px;}}QProgressBar::chunk{{background:{color};border-radius:2px;}}")
+        self._hero_card.setStyleSheet(hologram_panel_style(20, color))
+        self._save_btn.setStyleSheet(hologram_button_style(True, color))
+        self._name.setStyleSheet(hologram_input_style(color))
+        self._scroll.setStyleSheet(f"QScrollArea{{border:none;background:transparent;}}"
+                         f"QScrollBar:vertical{{background:transparent;width:7px;border:none;margin:6px 0 6px 0;}}"
+                         f"QScrollBar::handle:vertical{{background:{_rgba(color, 62)};border:1px solid {_rgba(color, 82)};border-radius:3px;min-height:26px;}}"
+                         f"QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical{{height:0;}}")
+        self._prog.setStyleSheet(hologram_progress_style(color))
         self._refresh()
 
     def set_plan_active(self, active):
@@ -5925,6 +6453,350 @@ class OverviewPage(QWidget):
         self._refresh_live_stats()
 
 
+class HologramRing(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._accent = HOLO_CYAN
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+
+        root = QVBoxLayout(self)
+        root.setContentsMargins(0, 0, 0, 0)
+        root.setSpacing(0)
+        root.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self._score = QLabel("86")
+        self._score.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._score.setStyleSheet(
+            f"color:{HOLO_TEXT};font-family:'{UI_FONT}';font-size:46px;font-weight:900;border:none;background:transparent;"
+        )
+        self._label = QLabel("tune score")
+        self._label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._label.setStyleSheet(hologram_plain_label(15, HOLO_MUTED, 500))
+        root.addWidget(self._score)
+        root.addWidget(self._label)
+        self.set_ring_size(208)
+
+    def set_ring_size(self, size):
+        size = int(max(156, min(236, size)))
+        if self.width() != size or self.height() != size:
+            self.setFixedSize(size, size)
+        score_px = max(34, int(size * 0.18))
+        label_px = max(12, int(size * 0.06))
+        self._score.setStyleSheet(
+            f"color:{HOLO_TEXT};font-family:'{UI_FONT}';font-size:{score_px}px;font-weight:900;border:none;background:transparent;"
+        )
+        self._label.setStyleSheet(hologram_plain_label(label_px, HOLO_MUTED, 500))
+        self.update()
+
+    def set_score(self, score):
+        self._score.setText(str(score))
+
+    def set_accent(self, color):
+        self._accent = _holo_accent(color)
+        self.update()
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        side = min(self.width(), self.height())
+        x0 = (self.width() - side) / 2
+        y0 = (self.height() - side) / 2
+        outer = QRectF(x0 + 1, y0 + 1, side - 2, side - 2)
+        accent = QColor(self._accent)
+        secondary = QColor(_holo_secondary(self._accent))
+        painter.setPen(QPen(QColor(accent.red(), accent.green(), accent.blue(), 56), 1))
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawEllipse(outer)
+
+        inset_a = side * 0.13
+        inset_b = side * 0.28
+        painter.setPen(QPen(QColor(secondary.red(), secondary.green(), secondary.blue(), 90), 1))
+        painter.drawEllipse(outer.adjusted(inset_a, inset_a, -inset_a, -inset_a))
+        painter.drawEllipse(outer.adjusted(inset_b, inset_b, -inset_b, -inset_b))
+
+        glow = QRadialGradient(QPointF(self.width() / 2, self.height() / 2), side * 0.48)
+        glow.setColorAt(0.0, QColor(accent.red(), accent.green(), accent.blue(), 24))
+        glow.setColorAt(1.0, QColor(accent.red(), accent.green(), accent.blue(), 0))
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QBrush(glow))
+        painter.drawEllipse(outer)
+        painter.end()
+
+
+class HologramMetricPanel(QFrame):
+    def __init__(self, label, value, description, parent=None):
+        super().__init__(parent)
+        self._accent = HOLO_CYAN
+        self.setStyleSheet(hologram_panel_style(30, self._accent))
+        self.setMinimumHeight(220)
+
+        self._effect = QGraphicsDropShadowEffect(self)
+        self._effect.setBlurRadius(50)
+        self._effect.setOffset(0, 0)
+        self.setGraphicsEffect(self._effect)
+
+        root = QVBoxLayout(self)
+        root.setContentsMargins(20, 20, 20, 20)
+        root.setSpacing(0)
+
+        small = QLabel(label)
+        small.setStyleSheet(hologram_plain_label(12, HOLO_MUTED, 900, 1.8))
+        value_label = QLabel(value)
+        value_label.setStyleSheet(
+            f"color:{HOLO_TEXT};font-family:'{UI_FONT}';font-size:30px;font-weight:900;border:none;background:transparent;"
+        )
+        description_label = QLabel(description)
+        description_label.setWordWrap(True)
+        description_label.setStyleSheet(
+            f"color:{HOLO_MUTED};font-family:'{UI_FONT}';font-size:15px;font-weight:500;line-height:1.4;border:none;background:transparent;"
+        )
+
+        root.addWidget(small)
+        root.addSpacing(12)
+        root.addWidget(value_label)
+        root.addSpacing(10)
+        root.addWidget(description_label)
+        root.addStretch(1)
+        self.update_accent(self._accent)
+
+    def update_accent(self, color):
+        self._accent = _holo_accent(color)
+        self.setStyleSheet(hologram_panel_style(30, self._accent))
+        ac = QColor(self._accent)
+        self._effect.setColor(QColor(ac.red(), ac.green(), ac.blue(), 20))
+
+
+class HologramHeroTitle(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._accent = HOLO_CYAN
+        self.setMinimumWidth(0)
+        self.setFixedHeight(120)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+
+    def set_accent(self, color):
+        self._accent = _holo_accent(color)
+        self.update()
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        available = max(80, self.width() - 2)
+        font = QFont(UI_FONT)
+        font.setWeight(QFont.Weight.Black)
+        chosen_size = 54
+        for size in range(56, 27, -1):
+            font.setPixelSize(size)
+            metrics = QFontMetrics(font)
+            fits_width = max(metrics.horizontalAdvance("System"), metrics.horizontalAdvance("Projection")) <= available
+            fits_height = metrics.lineSpacing() * 2 <= self.height() - 4
+            if fits_width and fits_height:
+                chosen_size = size
+                break
+        font.setPixelSize(chosen_size)
+        metrics = QFontMetrics(font)
+        painter.setFont(font)
+        line_spacing = metrics.lineSpacing()
+        top = max(0, int((self.height() - (line_spacing * 2)) / 2))
+        y1 = top + metrics.ascent()
+        y2 = y1 + line_spacing
+
+        accent = QColor(self._accent)
+        for x_offset, y_offset, alpha in ((0, 0, 42), (0, 2, 30)):
+            painter.setPen(QColor(accent.red(), accent.green(), accent.blue(), alpha))
+            painter.drawText(QPointF(x_offset, y1 + y_offset), "System")
+            painter.drawText(QPointF(x_offset, y2 + y_offset), "Projection")
+        painter.setPen(QColor(224, 247, 255))
+        painter.drawText(QPointF(0, y1), "System")
+        painter.drawText(QPointF(0, y2), "Projection")
+        painter.end()
+
+
+class HologramOverviewPage(QWidget):
+    tweaks_applied = pyqtSignal()
+    open_restore = pyqtSignal()
+
+    def __init__(self, get_ac, parent=None):
+        super().__init__(parent)
+        self._get_ac = get_ac
+        self._plan_active = False
+        self.setStyleSheet("background:transparent;border:none;")
+
+        root = QVBoxLayout(self)
+        root.setContentsMargins(0, 0, 0, 0)
+        root.setSpacing(22)
+
+        main_card = QFrame()
+        self._main_card = main_card
+        main_card.setStyleSheet(hologram_panel_style(30, self._get_ac()))
+        main_card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self._main_effect = QGraphicsDropShadowEffect(main_card)
+        self._main_effect.setBlurRadius(50)
+        self._main_effect.setOffset(0, 0)
+        main_card.setGraphicsEffect(self._main_effect)
+
+        self._hero_layout = QHBoxLayout(main_card)
+        hero_layout = self._hero_layout
+        hero_layout.setContentsMargins(28, 28, 28, 28)
+        hero_layout.setSpacing(16)
+
+        hero = QWidget()
+        hero.setStyleSheet("background:transparent;border:none;")
+        hero_col = QVBoxLayout(hero)
+        hero_col.setContentsMargins(0, 0, 0, 0)
+        hero_col.setSpacing(0)
+
+        title = HologramHeroTitle()
+        self._hero_title = title
+        self._hero_title.set_accent(self._get_ac())
+        paragraph = QLabel(
+            "A futuristic hologram UI. Strong visual identity, maybe less practical, "
+            "but it would make Hextra look unique in screenshots."
+        )
+        paragraph.setWordWrap(True)
+        paragraph.setMaximumWidth(360)
+        paragraph.setStyleSheet(
+            f"color:{HOLO_MUTED};font-family:'{UI_FONT}';font-size:15px;font-weight:500;line-height:1.45;border:none;background:transparent;"
+        )
+        self._project_btn = QPushButton("apply recommended")
+        self._project_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._project_btn.setFixedHeight(42)
+        self._project_btn.setMinimumWidth(0)
+        self._project_btn.setMaximumWidth(220)
+        self._project_btn.clicked.connect(self._project_recommended)
+        self._project_btn.setStyleSheet(self._project_button_style())
+
+        hero_col.addWidget(title)
+        hero_col.addSpacing(10)
+        hero_col.addWidget(paragraph)
+        hero_col.addSpacing(16)
+        hero_col.addWidget(self._project_btn, 0, Qt.AlignmentFlag.AlignLeft)
+        hero_col.addStretch(1)
+
+        rings = QWidget()
+        self._rings = rings
+        rings.setStyleSheet("background:transparent;border:none;")
+        rings.setFixedWidth(216)
+        rings_layout = QVBoxLayout(rings)
+        rings_layout.setContentsMargins(0, 0, 0, 0)
+        rings_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._ring = HologramRing()
+        self._ring.set_accent(self._get_ac())
+        rings_layout.addWidget(self._ring)
+
+        hero_layout.addWidget(hero, 1)
+        hero_layout.addWidget(rings)
+
+        bottom = QHBoxLayout()
+        bottom.setContentsMargins(0, 0, 0, 0)
+        bottom.setSpacing(18)
+        self._metric_panels = []
+        for label, value, description in [
+            ("LATENCY PACK", "Ready", "Network and input tweaks staged."),
+            ("SAFETY", "100%", "Undo snapshots prepared."),
+            ("PROFILE", "Esports", "Clean gaming preset selected."),
+        ]:
+            panel = HologramMetricPanel(label, value, description)
+            panel.update_accent(self._get_ac())
+            self._metric_panels.append(panel)
+            bottom.addWidget(panel, 1)
+
+        root.addWidget(main_card, 1)
+        root.addLayout(bottom)
+        self.update_accent(self._get_ac())
+        QTimer.singleShot(0, self._sync_hero_geometry)
+
+    def _project_button_style(self):
+        accent = _holo_accent(self._get_ac())
+        return (
+            "QPushButton{"
+            f"background:{_rgba(accent, 31)};"
+            f"color:{accent};"
+            f"border:1px solid {accent};"
+            "border-radius:13px;"
+            f"font-family:'{UI_FONT}';font-size:12px;font-weight:900;"
+            "padding:0 14px;"
+            "}"
+            "QPushButton:hover{"
+            f"background:{_rgba(accent, 44)};"
+            "}"
+            "QPushButton:disabled{"
+            f"color:{HOLO_MUTED};"
+            f"border-color:{_rgba(accent, 34)};"
+            f"background:{_rgba(accent, 10)};"
+            "}"
+        )
+
+    def _project_recommended(self):
+        if not self._plan_active:
+            self._project_btn.setToolTip("Active plan required.")
+            return
+        set_selected_tweaks([entry["id"] for entry in recommended_tweak_entries()])
+        self._project_btn.setText("Projected")
+        self.tweaks_applied.emit()
+        QTimer.singleShot(1400, lambda: self._project_btn.setText("apply recommended"))
+
+    def refresh_score(self):
+        self._ring.set_score(86)
+
+    def activate(self):
+        self.refresh_score()
+
+    def deactivate(self):
+        pass
+
+    def update_accent(self, color):
+        color = _holo_accent(color)
+        self._main_card.setStyleSheet(hologram_panel_style(30, color))
+        ac = QColor(color)
+        self._main_effect.setColor(QColor(ac.red(), ac.green(), ac.blue(), 20))
+        self._hero_title.set_accent(color)
+        self._ring.set_accent(color)
+        for panel in self._metric_panels:
+            panel.update_accent(color)
+        self._project_btn.setStyleSheet(self._project_button_style())
+        self.refresh_score()
+
+    def set_plan_active(self, active):
+        self._plan_active = bool(active)
+        self._project_btn.setEnabled(self._plan_active)
+        self._project_btn.setToolTip("" if self._plan_active else "Active plan required.")
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._sync_hero_geometry()
+
+    def _sync_hero_geometry(self):
+        if not hasattr(self, "_ring"):
+            return
+        width = max(0, self.width())
+        if width >= 760:
+            ring_size = 224
+            margin = 32
+            spacing = 22
+        elif width >= 620:
+            ring_size = 206
+            margin = 28
+            spacing = 18
+        elif width >= 500:
+            ring_size = 188
+            margin = 24
+            spacing = 14
+        else:
+            ring_size = 164
+            margin = 20
+            spacing = 12
+        self._ring.set_ring_size(ring_size)
+        self._rings.setFixedWidth(ring_size + 10)
+        self._hero_layout.setContentsMargins(margin, margin, margin, margin)
+        self._hero_layout.setSpacing(spacing)
+
+
 class HtmlActivityPage(QWidget):
     def __init__(self, get_ac, parent=None):
         super().__init__(parent)
@@ -6009,50 +6881,52 @@ class QuickToolsPage(QWidget):
         self._plan_active = False
         self._worker = None
         self._buttons = []
-        self.setStyleSheet(f"background:{BG};")
+        self._cards = []
+        self.setStyleSheet("background:transparent;border:none;")
         root = QVBoxLayout(self)
-        root.setContentsMargins(32, 28, 32, 28)
+        root.setContentsMargins(28, 28, 28, 0)
         root.setSpacing(0)
         self._title = QLabel("Quick Tools")
-        self._title.setStyleSheet(replica_title_style())
+        self._title.setStyleSheet(
+            f"color:{HOLO_TEXT};font-family:'{UI_FONT}';font-size:25px;font-weight:300;border:none;background:transparent;"
+        )
         self._subtitle = QLabel("one-click system utilities")
-        self._subtitle.setStyleSheet(f"color:{MID};font:11px '{MONO_FONT}';border:none;")
+        self._subtitle.setStyleSheet(f"color:{HOLO_MUTED};font:500 11px '{MONO_FONT}';border:none;background:transparent;")
         root.addWidget(self._title)
         root.addWidget(self._subtitle)
-        root.addSpacing(24)
+        root.addSpacing(22)
 
         grid = QGridLayout()
         grid.setContentsMargins(0, 0, 0, 0)
-        grid.setHorizontalSpacing(8)
-        grid.setVerticalSpacing(8)
+        grid.setHorizontalSpacing(12)
+        grid.setVerticalSpacing(12)
         for index, entry in enumerate(quick_tool_entries()):
             card = QFrame()
-            card.setStyleSheet(
-                f"QFrame{{background:{PANEL};border:1px solid {LINE};border-radius:4px;}}"
-                f"QFrame:hover{{background:{SURFACE2};border-color:{_rgba('#ffffff', 32)};}}"
-            )
+            card.setStyleSheet(hologram_panel_style(18, self._get_ac()))
             lay = QVBoxLayout(card)
-            lay.setContentsMargins(14, 14, 14, 14)
-            lay.setSpacing(10)
+            lay.setContentsMargins(16, 16, 16, 16)
+            lay.setSpacing(11)
             name = QLabel(entry["name"])
-            name.setStyleSheet(f"color:{MAIN};font:500 12px '{UI_FONT}';border:none;background:transparent;")
+            name.setStyleSheet(f"color:{HOLO_TEXT};font:800 14px '{UI_FONT}';border:none;background:transparent;")
             desc = QLabel(entry.get("desc", ""))
             desc.setWordWrap(True)
-            desc.setStyleSheet(f"color:{MID};font:10px '{MONO_FONT}';border:none;line-height:1.5;background:transparent;")
+            desc.setStyleSheet(f"color:{HOLO_MUTED};font:500 11px '{MONO_FONT}';border:none;line-height:1.5;background:transparent;")
             btn = QPushButton("run")
-            btn.setFixedHeight(28)
+            btn.setFixedSize(76, 34)
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn.setStyleSheet(_ghost(self._get_ac()))
+            btn.setStyleSheet(hologram_button_style(False, self._get_ac()))
             btn.clicked.connect(lambda _=False, item=entry: self._run_tool(item))
             lay.addWidget(name)
             lay.addWidget(desc)
+            lay.addStretch(1)
             lay.addWidget(btn, 0, Qt.AlignmentFlag.AlignLeft)
             grid.addWidget(card, index // 3, index % 3)
             self._buttons.append(btn)
+            self._cards.append(card)
         root.addLayout(grid)
         root.addSpacing(16)
         self._status = QLabel("")
-        self._status.setStyleSheet(f"color:{MID};font:10px '{MONO_FONT}';border:none;background:transparent;")
+        self._status.setStyleSheet(f"color:{HOLO_MUTED};font:500 11px '{MONO_FONT}';border:none;background:transparent;")
         root.addWidget(self._status)
         root.addStretch(1)
 
@@ -6079,8 +6953,10 @@ class QuickToolsPage(QWidget):
         return
 
     def update_accent(self, color):
+        for card in self._cards:
+            card.setStyleSheet(hologram_panel_style(18, color))
         for btn in self._buttons:
-            btn.setStyleSheet(_ghost(color))
+            btn.setStyleSheet(hologram_button_style(False, color))
 
     def set_plan_active(self, active):
         self._plan_active = bool(active)
@@ -6257,85 +7133,204 @@ class HtmlRestorePage(QWidget):
         self._rp_result = None
         self._rp_poll = QTimer(self)
         self._rp_poll.timeout.connect(self._poll_restore_result)
-        self.setStyleSheet(f"background:{BG};")
+        self.setStyleSheet("background:transparent;border:none;")
         root = QVBoxLayout(self)
-        root.setContentsMargins(32, 28, 32, 28)
+        root.setContentsMargins(28, 28, 28, 0)
         root.setSpacing(0)
-        self._title = QLabel("Restore")
-        self._title.setStyleSheet(replica_title_style())
-        self._subtitle = QLabel("system protection / windows restore")
-        self._subtitle.setStyleSheet(f"color:{MID};font:11px '{MONO_FONT}';border:none;")
-        root.addWidget(self._title)
-        root.addWidget(self._subtitle)
-        root.addSpacing(24)
+
+        top = QHBoxLayout()
+        top.setContentsMargins(0, 0, 0, 0)
+        top.setSpacing(8)
+        title_col = QVBoxLayout()
+        title_col.setContentsMargins(0, 0, 0, 0)
+        title_col.setSpacing(2)
+        self._title = QLabel("Recovery")
+        self._title.setStyleSheet(
+            f"color:{HOLO_TEXT};font-family:'{UI_FONT}';font-size:25px;font-weight:300;border:none;background:transparent;"
+        )
+        self._subtitle = QLabel("restore / system protection")
+        self._subtitle.setStyleSheet(
+            f"color:{HOLO_MUTED};font:500 11px '{MONO_FONT}';border:none;background:transparent;"
+        )
+        title_col.addWidget(self._title)
+        title_col.addWidget(self._subtitle)
+        top.addLayout(title_col)
+        top.addStretch(1)
+        self._mode_badge = QLabel("local safety")
+        self._mode_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._mode_badge.setStyleSheet(hologram_badge_style(self._get_ac()))
+        top.addWidget(self._mode_badge, 0, Qt.AlignmentFlag.AlignTop)
+        root.addLayout(top)
+        root.addSpacing(22)
 
         self._card = QFrame()
-        self._card.setStyleSheet(f"QFrame{{background:{PANEL};border:1px solid {LINE};border-radius:4px;}}")
+        self._card.setObjectName("RestoreStatusCard")
+        self._card.setMinimumHeight(128)
+        self._card.setStyleSheet(self._panel_style("RestoreStatusCard", self._get_ac()))
+        self._apply_shadow(self._card)
         card_l = QHBoxLayout(self._card)
-        card_l.setContentsMargins(24, 20, 24, 20)
-        card_l.setSpacing(16)
-        self._icon = QLabel("READY")
+        card_l.setContentsMargins(22, 20, 22, 20)
+        card_l.setSpacing(18)
+        self._icon = QLabel("MISSING")
         self._icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._icon.setFixedWidth(52)
-        self._icon.setStyleSheet(replica_badge_style("green"))
+        self._icon.setFixedSize(82, 34)
+        self._icon.setStyleSheet(hologram_badge_style(HOLO_PINK))
         self._restore_title = QLabel("")
-        self._restore_title.setStyleSheet(f"color:{MAIN};font:500 13px '{UI_FONT}';border:none;")
+        self._restore_title.setStyleSheet(
+            f"color:{HOLO_TEXT};font-family:'{UI_FONT}';font-size:18px;font-weight:800;border:none;background:transparent;"
+        )
         self._restore_sub = QLabel("")
-        self._restore_sub.setStyleSheet(f"color:{MID};font:10px '{MONO_FONT}';border:none;")
+        self._restore_sub.setWordWrap(True)
+        self._restore_sub.setStyleSheet(
+            f"color:{HOLO_MUTED};font:500 12px '{MONO_FONT}';border:none;background:transparent;"
+        )
         text_col = QVBoxLayout()
         text_col.setContentsMargins(0, 0, 0, 0)
-        text_col.setSpacing(3)
+        text_col.setSpacing(5)
         text_col.addWidget(self._restore_title)
         text_col.addWidget(self._restore_sub)
-        self._revert_btn = QPushButton("revert")
-        self._revert_btn.setFixedHeight(34)
+        self._revert_btn = QPushButton("open restore")
+        self._revert_btn.setFixedSize(128, 38)
         self._revert_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._revert_btn.setStyleSheet(_ghost(self._get_ac()))
+        self._revert_btn.setStyleSheet(hologram_button_style(False, self._get_ac()))
         self._revert_btn.clicked.connect(lambda: run_cmd("rstrui.exe"))
-        card_l.addWidget(self._icon, 0, Qt.AlignmentFlag.AlignTop)
+        card_l.addWidget(self._icon, 0, Qt.AlignmentFlag.AlignVCenter)
         card_l.addLayout(text_col, 1)
-        card_l.addWidget(self._revert_btn)
+        card_l.addWidget(self._revert_btn, 0, Qt.AlignmentFlag.AlignVCenter)
         root.addWidget(self._card)
 
-        root.addSpacing(24)
-        self._create_lbl = QLabel("Create New")
-        self._create_lbl.setStyleSheet(f"color:{DIM};font:500 9px '{MONO_FONT}';letter-spacing:1.5px;border:none;")
+        root.addSpacing(16)
+        self._create_card = QFrame()
+        self._create_card.setObjectName("RestoreCreateCard")
+        self._create_card.setMinimumHeight(178)
+        self._create_card.setStyleSheet(self._panel_style("RestoreCreateCard", self._get_ac()))
+        self._apply_shadow(self._create_card)
+        create_l = QVBoxLayout(self._create_card)
+        create_l.setContentsMargins(22, 20, 22, 20)
+        create_l.setSpacing(0)
+
+        create_head = QHBoxLayout()
+        create_head.setContentsMargins(0, 0, 0, 0)
+        create_head.setSpacing(8)
+        self._create_lbl = QLabel("Create Checkpoint")
+        self._create_lbl.setStyleSheet(
+            f"color:{HOLO_TEXT};font-family:'{UI_FONT}';font-size:18px;font-weight:800;border:none;background:transparent;"
+        )
+        admin = QLabel("admin")
+        admin.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        admin.setStyleSheet(hologram_badge_style(HOLO_AMBER))
+        create_head.addWidget(self._create_lbl)
+        create_head.addStretch(1)
+        create_head.addWidget(admin)
+        create_l.addLayout(create_head)
+        create_l.addSpacing(10)
+
         self._create_desc = QLabel("Creates a Windows System Restore checkpoint before applying changes.\nRequires admin privileges.")
-        self._create_desc.setStyleSheet(f"color:{MID};font:12px '{MONO_FONT}';border:none;line-height:1.6;")
+        self._create_desc.setWordWrap(True)
+        self._create_desc.setStyleSheet(
+            f"color:{HOLO_MUTED};font:500 12px '{MONO_FONT}';border:none;background:transparent;"
+        )
+        create_l.addWidget(self._create_desc)
+        create_l.addSpacing(18)
+
+        action_row = QHBoxLayout()
+        action_row.setContentsMargins(0, 0, 0, 0)
+        action_row.setSpacing(14)
         self._create_btn = QPushButton("create restore point")
-        self._create_btn.setFixedHeight(36)
+        self._create_btn.setFixedSize(168, 38)
         self._create_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._create_btn.setStyleSheet(_solid(self._get_ac()))
+        self._create_btn.setStyleSheet(hologram_button_style(True, self._get_ac()))
         self._create_btn.clicked.connect(self._make_rp)
         self._prog = _prog_bar(self._get_ac())
+        self._prog.setFixedHeight(6)
+        self._prog.setStyleSheet(hologram_progress_style(self._get_ac()))
         self._prog.setVisible(False)
         self._status = QLabel("")
-        self._status.setStyleSheet(f"color:{MID};font:10px '{MONO_FONT}';border:none;")
-        root.addWidget(self._create_lbl)
-        root.addSpacing(8)
-        root.addWidget(self._create_desc)
+        self._status.setStyleSheet(
+            f"color:{HOLO_MUTED};font:500 11px '{MONO_FONT}';border:none;background:transparent;"
+        )
+        progress_col = QVBoxLayout()
+        progress_col.setContentsMargins(0, 0, 0, 0)
+        progress_col.setSpacing(7)
+        progress_col.addWidget(self._prog)
+        progress_col.addWidget(self._status)
+        action_row.addWidget(self._create_btn)
+        action_row.addLayout(progress_col, 1)
+        create_l.addLayout(action_row)
+        root.addWidget(self._create_card)
+
         root.addSpacing(16)
-        root.addWidget(self._create_btn, 0, Qt.AlignmentFlag.AlignLeft)
-        root.addSpacing(12)
-        root.addWidget(self._prog)
-        root.addSpacing(8)
-        root.addWidget(self._status)
+        meta = QHBoxLayout()
+        meta.setContentsMargins(0, 0, 0, 0)
+        meta.setSpacing(12)
+        self._meta_panels = []
+        for label, value in [("MODE", "OFFLINE"), ("ROLLBACK", "LOCAL"), ("SOURCE", "WINDOWS")]:
+            meta.addWidget(self._make_meta_panel(label, value), 1)
+        root.addLayout(meta)
         root.addStretch(1)
         self._refresh()
 
+    def _panel_style(self, name, tone, radius=20):
+        return (
+            f"QFrame#{name}{{"
+            f"background:qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 {HOLO_PANEL_TOP},stop:1 {HOLO_PANEL_BOTTOM});"
+            f"border:1px solid {_rgba(tone, 64)};"
+            f"border-radius:{radius}px;"
+            "}"
+        )
+
+    def _apply_shadow(self, widget):
+        effect = QGraphicsDropShadowEffect(widget)
+        effect.setBlurRadius(44)
+        effect.setOffset(0, 0)
+        ac = QColor(self._get_ac())
+        effect.setColor(QColor(ac.red(), ac.green(), ac.blue(), 18))
+        widget.setGraphicsEffect(effect)
+
+    def _make_meta_panel(self, label, value):
+        panel = QFrame()
+        panel.setObjectName(f"RestoreMeta{label}")
+        panel.setFixedHeight(72)
+        panel.setStyleSheet(self._panel_style(panel.objectName(), self._get_ac(), 16))
+        if hasattr(self, "_meta_panels"):
+            self._meta_panels.append(panel)
+        lay = QVBoxLayout(panel)
+        lay.setContentsMargins(14, 12, 14, 12)
+        lay.setSpacing(4)
+        cap = QLabel(label)
+        cap.setStyleSheet(hologram_plain_label(10, HOLO_MUTED, 800, 1.2))
+        val = QLabel(value)
+        val.setStyleSheet(
+            f"color:{HOLO_TEXT};font-family:'{UI_FONT}';font-size:16px;font-weight:900;border:none;background:transparent;"
+        )
+        lay.addWidget(cap)
+        lay.addWidget(val)
+        return panel
+
+    def _sync_sidebar(self):
+        p = self.parent()
+        while p and not isinstance(p, Dashboard):
+            p = p.parent()
+        if p and hasattr(p, "_sidebar"):
+            p._sidebar.set_account_summary("local", "Open Source", True)
+
     def _refresh(self):
-        if has_restore_point():
-            self._icon.show()
+        ready = has_restore_point()
+        if ready:
             self._icon.setText("READY")
-            self._icon.setStyleSheet(replica_badge_style("green"))
-            self._restore_title.setText("Restore Point Created")
-            self._restore_sub.setText("hextra tweaker checkpoint available")
+            self._icon.setStyleSheet(hologram_badge_style(HOLO_GREEN))
+            self._card.setStyleSheet(self._panel_style("RestoreStatusCard", HOLO_GREEN))
+            self._restore_title.setText("Restore Point Ready")
+            self._restore_sub.setText("Hextra checkpoint available. System Restore can roll back if needed.")
             self._revert_btn.setEnabled(True)
         else:
-            self._icon.hide()
+            self._icon.setText("MISSING")
+            self._icon.setStyleSheet(hologram_badge_style(HOLO_PINK))
+            self._card.setStyleSheet(self._panel_style("RestoreStatusCard", HOLO_PINK))
             self._restore_title.setText("No Restore Point")
-            self._restore_sub.setText("create a checkpoint before applying changes")
+            self._restore_sub.setText("Create a checkpoint before applying system changes.")
             self._revert_btn.setEnabled(False)
+        self._sync_sidebar()
 
     def _make_rp(self):
         self._create_btn.setEnabled(False)
@@ -6343,6 +7338,9 @@ class HtmlRestorePage(QWidget):
         self._prog.setVisible(True)
         self._prog.setValue(12)
         self._status.setText("creating restore point...")
+        self._status.setStyleSheet(
+            f"color:{HOLO_MUTED};font:500 11px '{MONO_FONT}';border:none;background:transparent;"
+        )
         self._rp_result = None
         def _do():
             self._rp_result = create_restore_point()
@@ -6356,6 +7354,9 @@ class HtmlRestorePage(QWidget):
         ok, msg = self._rp_result
         self._prog.setValue(100 if ok else 0)
         self._status.setText(msg)
+        self._status.setStyleSheet(
+            f"color:{HOLO_GREEN if ok else HOLO_PINK};font:500 11px '{MONO_FONT}';border:none;background:transparent;"
+        )
         self._create_btn.setEnabled(True)
         self._create_btn.setText("create restore point")
         self._refresh()
@@ -6364,9 +7365,14 @@ class HtmlRestorePage(QWidget):
         self._refresh()
 
     def update_accent(self, color):
-        self._create_btn.setStyleSheet(_solid(color))
-        self._revert_btn.setStyleSheet(_ghost(color))
-        self._prog.setStyleSheet(_prog_bar(color).styleSheet())
+        self._mode_badge.setStyleSheet(hologram_badge_style(color))
+        self._create_card.setStyleSheet(self._panel_style("RestoreCreateCard", color))
+        self._create_btn.setStyleSheet(hologram_button_style(True, color))
+        self._revert_btn.setStyleSheet(hologram_button_style(False, color))
+        self._prog.setStyleSheet(hologram_progress_style(color))
+        for panel in getattr(self, "_meta_panels", []):
+            panel.setStyleSheet(self._panel_style(panel.objectName(), color, 16))
+        self._refresh()
 
 
 class HtmlSettingsPage(QWidget):
@@ -6637,6 +7643,414 @@ class HtmlSettingsPage(QWidget):
         self._update_status.setStyleSheet(f"color:{color};font:400 10px '{UI_FONT}';border:none;background:transparent;")
 
 
+class HologramSettingsPage(QWidget):
+    accent_changed = pyqtSignal(str)
+    snow_changed = pyqtSignal(bool)
+    game_paths_changed = pyqtSignal()
+    data_imported = pyqtSignal()
+    check_updates_requested = pyqtSignal()
+
+    def __init__(self, get_ac, parent=None):
+        super().__init__(parent)
+        self._get_ac = get_ac
+        self._swatches = []
+        self._game_edits = {}
+        self._action_buttons = []
+        self._panels = []
+        self._section_labels = []
+        self._custom_theme_buttons = []
+        self._picked_color = _holo_accent(self._get_ac())
+        self.setStyleSheet("background:transparent;border:none;")
+
+        outer_layout = QVBoxLayout(self)
+        outer_layout.setContentsMargins(28, 28, 28, 0)
+        outer_layout.setSpacing(0)
+
+        header_layout = QHBoxLayout()
+        header_layout.setContentsMargins(0, 0, 0, 0)
+        header_layout.setSpacing(10)
+        title_column = QVBoxLayout()
+        title_column.setContentsMargins(0, 0, 0, 0)
+        title_column.setSpacing(2)
+        self._title = QLabel("Settings")
+        self._title.setStyleSheet(
+            f"color:{HOLO_TEXT};font-family:'{UI_FONT}';font-size:25px;font-weight:300;border:none;background:transparent;"
+        )
+        self._subtitle = QLabel("theme / local preferences / folders")
+        self._subtitle.setStyleSheet(f"color:{HOLO_MUTED};font:500 11px '{MONO_FONT}';border:none;background:transparent;")
+        title_column.addWidget(self._title)
+        title_column.addWidget(self._subtitle)
+        header_layout.addLayout(title_column, 1)
+        self._mode_badge = QLabel("offline settings")
+        self._mode_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._mode_badge.setStyleSheet(hologram_badge_style(self._get_ac()))
+        header_layout.addWidget(self._mode_badge, 0, Qt.AlignmentFlag.AlignTop)
+        outer_layout.addLayout(header_layout)
+        outer_layout.addSpacing(22)
+
+        self._scroll = SmoothScrollArea()
+        self._scroll.setWidgetResizable(True)
+        self._scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._scroll.setStyleSheet(self._scroll_style(self._get_ac()))
+
+        host = QWidget()
+        host.setStyleSheet("background:transparent;border:none;")
+        content_layout = QVBoxLayout(host)
+        content_layout.setContentsMargins(0, 0, 4, 0)
+        content_layout.setSpacing(14)
+
+        appearance_panel, appearance_layout = self._make_panel(
+            "APPEARANCE",
+            "Accent color",
+            "Preset swatches and the custom picker recolor the full Hologram layout.",
+        )
+        preview_layout = QHBoxLayout()
+        preview_layout.setContentsMargins(0, 0, 0, 0)
+        preview_layout.setSpacing(12)
+        self._accent_preview = QFrame()
+        self._accent_preview.setFixedSize(50, 50)
+        preview_layout.addWidget(self._accent_preview)
+        preview_text_layout = QVBoxLayout()
+        preview_text_layout.setContentsMargins(0, 0, 0, 0)
+        preview_text_layout.setSpacing(3)
+        self._accent_name = QLabel("")
+        self._accent_name.setStyleSheet(f"color:{HOLO_TEXT};font:800 13px '{UI_FONT}';border:none;background:transparent;")
+        self._accent_hint = QLabel("Navigation, backdrop, cards, tweak rows, buttons, toggles and progress bars update live.")
+        self._accent_hint.setWordWrap(True)
+        self._accent_hint.setStyleSheet(f"color:{HOLO_MUTED};font:500 11px '{MONO_FONT}';border:none;background:transparent;")
+        preview_text_layout.addWidget(self._accent_name)
+        preview_text_layout.addWidget(self._accent_hint)
+        preview_layout.addLayout(preview_text_layout, 1)
+        self._pick_button = QPushButton("pick custom color")
+        self._pick_button.setFixedHeight(38)
+        self._pick_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._pick_button.clicked.connect(self._pick_custom_color)
+        self._action_buttons.append((self._pick_button, False))
+        preview_layout.addWidget(self._pick_button)
+        appearance_layout.addLayout(preview_layout)
+
+        swatch_layout = QHBoxLayout()
+        swatch_layout.setContentsMargins(0, 8, 0, 0)
+        swatch_layout.setSpacing(8)
+        for theme_name, theme_color in THEMES.items():
+            swatch_button = QPushButton()
+            swatch_button.setFixedSize(28, 28)
+            swatch_button.setCursor(Qt.CursorShape.PointingHandCursor)
+            swatch_button.setToolTip(theme_name.title())
+            swatch_button.clicked.connect(lambda _checked=False, selected_color=theme_color: self.accent_changed.emit(selected_color))
+            self._swatches.append((swatch_button, theme_color))
+            swatch_layout.addWidget(swatch_button)
+        swatch_layout.addStretch(1)
+        appearance_layout.addLayout(swatch_layout)
+
+        save_layout = QHBoxLayout()
+        save_layout.setContentsMargins(0, 6, 0, 0)
+        save_layout.setSpacing(8)
+        self._custom_name = QLineEdit()
+        self._custom_name.setPlaceholderText("save current color as...")
+        self._custom_name.setFixedHeight(38)
+        save_layout.addWidget(self._custom_name, 1)
+        self._save_custom_button = QPushButton("save theme")
+        self._save_custom_button.setFixedHeight(38)
+        self._save_custom_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._save_custom_button.clicked.connect(self._save_custom_theme)
+        self._action_buttons.append((self._save_custom_button, True))
+        save_layout.addWidget(self._save_custom_button)
+        appearance_layout.addLayout(save_layout)
+
+        self._custom_theme_list = QHBoxLayout()
+        self._custom_theme_list.setContentsMargins(0, 4, 0, 0)
+        self._custom_theme_list.setSpacing(8)
+        appearance_layout.addLayout(self._custom_theme_list)
+
+        snow_layout = QHBoxLayout()
+        snow_layout.setContentsMargins(0, 10, 0, 0)
+        snow_layout.setSpacing(12)
+        snow_text_layout = QVBoxLayout()
+        snow_text_layout.setContentsMargins(0, 0, 0, 0)
+        snow_text_layout.setSpacing(2)
+        snow_title = QLabel("Snow effect")
+        snow_title.setStyleSheet(f"color:{HOLO_TEXT};font:800 13px '{UI_FONT}';border:none;background:transparent;")
+        snow_desc = QLabel("animated particles over the Hologram shell")
+        snow_desc.setStyleSheet(f"color:{HOLO_MUTED};font:500 11px '{MONO_FONT}';border:none;background:transparent;")
+        snow_text_layout.addWidget(snow_title)
+        snow_text_layout.addWidget(snow_desc)
+        self._snow = HologramToggle()
+        self._snow.setChecked(is_snow_on())
+        self._snow.clicked.connect(self._toggle_snow_effect)
+        snow_layout.addLayout(snow_text_layout, 1)
+        snow_layout.addWidget(self._snow, 0, Qt.AlignmentFlag.AlignVCenter)
+        appearance_layout.addLayout(snow_layout)
+        content_layout.addWidget(appearance_panel)
+
+        build_panel, build_layout = self._make_panel(
+            "BUILD",
+            "Local version",
+            "Offline open-source build; update by pulling source and rebuilding.",
+        )
+        self._update_status = QLabel(f"Current build {VERSION}")
+        self._update_status.setWordWrap(True)
+        self._update_status.setStyleSheet(f"color:{HOLO_MUTED};font:500 11px '{MONO_FONT}';border:none;background:transparent;")
+        build_layout.addWidget(self._update_status)
+        self._check_updates_button = self._make_button("info", False, self._request_update_check)
+        build_layout.addWidget(self._check_updates_button, 0, Qt.AlignmentFlag.AlignLeft)
+        content_layout.addWidget(build_panel)
+
+        data_panel, data_layout = self._make_panel(
+            "DATA",
+            "Import / Export",
+            "Back up this local setup or load it onto another machine.",
+        )
+        data_actions = QHBoxLayout()
+        data_actions.setContentsMargins(0, 0, 0, 0)
+        data_actions.setSpacing(8)
+        data_actions.addWidget(self._make_button("export settings", False, self._export_settings))
+        data_actions.addWidget(self._make_button("import settings", True, self._import_settings))
+        data_actions.addStretch(1)
+        data_layout.addLayout(data_actions)
+        content_layout.addWidget(data_panel)
+
+        folders_panel, folders_layout = self._make_panel(
+            "FOLDERS",
+            "Game paths",
+            "Point Hextra to a game folder if automatic detection misses it.",
+        )
+        game_paths = load_game_paths()
+        for game_name in ["Roblox", "FiveM", "Valorant", "CS2", "Minecraft", "Fortnite", "Apex"]:
+            folder_row = QHBoxLayout()
+            folder_row.setContentsMargins(0, 0, 0, 0)
+            folder_row.setSpacing(8)
+            label = QLabel(game_name)
+            label.setFixedWidth(90)
+            label.setStyleSheet(f"color:{HOLO_TEXT};font:700 12px '{UI_FONT}';border:none;background:transparent;")
+            edit = QLineEdit()
+            edit.setFixedHeight(36)
+            edit.setText(game_paths.get(game_name, ""))
+            edit.setPlaceholderText("optional")
+            self._game_edits[game_name] = edit
+            browse_button = self._make_button("browse", False, lambda _checked=False, selected_game=game_name, selected_edit=edit: self._browse_game_folder(selected_game, selected_edit))
+            clear_button = self._make_button("clear", False, lambda _checked=False, selected_game=game_name, selected_edit=edit: self._clear_game_folder(selected_game, selected_edit))
+            folder_row.addWidget(label)
+            folder_row.addWidget(edit, 1)
+            folder_row.addWidget(browse_button)
+            folder_row.addWidget(clear_button)
+            folders_layout.addLayout(folder_row)
+        content_layout.addWidget(folders_panel)
+        content_layout.addStretch(1)
+
+        self._scroll.setWidget(host)
+        outer_layout.addWidget(self._scroll, 1)
+        self._rebuild_custom_theme_buttons()
+        self.update_accent(self._get_ac())
+
+    def _scroll_style(self, color):
+        color = _holo_accent(color)
+        return (
+            "QScrollArea{border:none;background:transparent;}"
+            "QScrollBar:vertical{background:transparent;width:7px;border:none;margin:6px 0 6px 0;}"
+            f"QScrollBar::handle:vertical{{background:{_rgba(color, 62)};border:1px solid {_rgba(color, 82)};border-radius:3px;min-height:26px;}}"
+            "QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical{height:0;}"
+        )
+
+    def _make_panel(self, caption, title, description):
+        panel = QFrame()
+        panel.setStyleSheet(hologram_panel_style(20, self._get_ac()))
+        self._panels.append(panel)
+        layout = QVBoxLayout(panel)
+        layout.setContentsMargins(20, 18, 20, 18)
+        layout.setSpacing(10)
+        caption_label = QLabel(caption)
+        caption_label.setStyleSheet(hologram_plain_label(11, self._get_ac(), 900, 2.0))
+        self._section_labels.append(caption_label)
+        title_label = QLabel(title)
+        title_label.setStyleSheet(f"color:{HOLO_TEXT};font:800 15px '{UI_FONT}';border:none;background:transparent;")
+        description_label = QLabel(description)
+        description_label.setWordWrap(True)
+        description_label.setStyleSheet(f"color:{HOLO_MUTED};font:500 11px '{MONO_FONT}';border:none;background:transparent;")
+        layout.addWidget(caption_label)
+        layout.addWidget(title_label)
+        layout.addWidget(description_label)
+        return panel, layout
+
+    def _make_button(self, text, primary, handler):
+        button = QPushButton(text)
+        button.setFixedHeight(34)
+        button.setCursor(Qt.CursorShape.PointingHandCursor)
+        button.clicked.connect(handler)
+        self._action_buttons.append((button, bool(primary)))
+        return button
+
+    def _clear_layout_widgets(self, layout):
+        while layout.count():
+            item = layout.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.deleteLater()
+
+    def _rebuild_custom_theme_buttons(self):
+        self._clear_layout_widgets(self._custom_theme_list)
+        self._custom_theme_buttons = []
+        themes = load_custom_themes()
+        if not themes:
+            empty = QLabel("No saved custom themes yet.")
+            empty.setStyleSheet(f"color:{HOLO_MUTED};font:500 11px '{MONO_FONT}';border:none;background:transparent;")
+            self._custom_theme_list.addWidget(empty)
+            self._custom_theme_list.addStretch(1)
+            return
+        for name, color in themes.items():
+            theme_color = _holo_accent(color)
+            theme_button = QPushButton(name.title())
+            theme_button.setFixedHeight(32)
+            theme_button.setCursor(Qt.CursorShape.PointingHandCursor)
+            theme_button.clicked.connect(lambda _checked=False, selected_color=theme_color: self.accent_changed.emit(selected_color))
+            delete_button = QPushButton("remove")
+            delete_button.setFixedHeight(32)
+            delete_button.setCursor(Qt.CursorShape.PointingHandCursor)
+            delete_button.clicked.connect(lambda _checked=False, selected_name=name: (delete_custom_theme(selected_name), self._rebuild_custom_theme_buttons()))
+            delete_button.setStyleSheet(hologram_button_style(False, self._get_ac()))
+            self._custom_theme_buttons.append((theme_button, theme_color, delete_button))
+            self._custom_theme_list.addWidget(theme_button)
+            self._custom_theme_list.addWidget(delete_button)
+        self._custom_theme_list.addStretch(1)
+
+    def _browse_game_folder(self, game_key, edit):
+        start = edit.text().strip() or os.path.expanduser("~")
+        folder = QFileDialog.getExistingDirectory(self, f"select folder - {game_key}", start)
+        if folder:
+            edit.setText(folder)
+            save_game_path(game_key, folder)
+            self.game_paths_changed.emit()
+
+    def _clear_game_folder(self, game_key, edit):
+        edit.clear()
+        save_game_path(game_key, "")
+        self.game_paths_changed.emit()
+
+    def _pick_custom_color(self):
+        color = QColorDialog.getColor(QColor(self._picked_color), self, "pick accent color")
+        if color.isValid():
+            self._picked_color = color.name()
+            self.accent_changed.emit(self._picked_color)
+
+    def _save_custom_theme(self):
+        name = self._custom_name.text().strip()
+        if not name:
+            return
+        save_custom_theme(name, self._picked_color)
+        self._custom_name.clear()
+        self._rebuild_custom_theme_buttons()
+        self.accent_changed.emit(self._picked_color)
+
+    def _export_settings(self):
+        path, _ = QFileDialog.getSaveFileName(self, "export settings", os.path.expanduser("~\\hextra-tweaker-settings.json"), "JSON (*.json)")
+        if path:
+            ok = export_settings_file(path)
+            append_activity("settings", "Export settings", path, "ok" if ok else "error")
+
+    def _import_settings(self):
+        path, _ = QFileDialog.getOpenFileName(self, "import settings", os.path.expanduser("~"), "JSON (*.json)")
+        if not path:
+            return
+        ok, _message = import_settings_file(path)
+        append_activity("settings", "Import settings", path, "ok" if ok else "error")
+        if ok:
+            self.reload_from_storage()
+            self.game_paths_changed.emit()
+            self.data_imported.emit()
+
+    def _toggle_snow_effect(self):
+        enabled = self._snow.isChecked()
+        set_snow(enabled)
+        self.snow_changed.emit(enabled)
+
+    def _request_update_check(self):
+        if OFFLINE_MODE:
+            self.set_update_status(f"Offline build {VERSION}. Update by pulling the source and rebuilding.", HOLO_MUTED)
+            return
+        self.set_update_status("Checking for updates...", HOLO_MUTED)
+        self.check_updates_requested.emit()
+
+    def reload_from_storage(self):
+        game_paths = load_game_paths()
+        for key, edit in self._game_edits.items():
+            edit.setText(game_paths.get(key, ""))
+        self._snow.setChecked(is_snow_on())
+        stored_color = load_data().get("color", self._get_ac())
+        if stored_color != "rainbow":
+            self._picked_color = _holo_accent(stored_color)
+        self._rebuild_custom_theme_buttons()
+        self.update_accent(stored_color)
+
+    def activate(self):
+        self.reload_from_storage()
+
+    def _swatch_style(self, swatch, selected, live_color):
+        border = HOLO_TEXT if selected else _rgba(live_color, 54)
+        if swatch == "rainbow":
+            return (
+                "QPushButton{"
+                "background:qlineargradient(x1:0,y1:0,x2:1,y2:1,"
+                "stop:0 #ff004d,stop:0.20 #ff7a00,stop:0.40 #ffe600,"
+                "stop:0.60 #00d084,stop:0.80 #3b82f6,stop:1 #8b5cf6);"
+                f"border:2px solid {border};border-radius:10px;"
+                "}"
+                f"QPushButton:hover{{border-color:{HOLO_TEXT};}}"
+            )
+        return (
+            "QPushButton{"
+            f"background:{_holo_accent(swatch)};"
+            f"border:2px solid {border};"
+            "border-radius:10px;"
+            "}"
+            f"QPushButton:hover{{border-color:{HOLO_TEXT};}}"
+        )
+
+    def update_accent(self, color):
+        stored_color = load_data().get("color", color)
+        live_color = self._get_ac() if stored_color == "rainbow" or color == "rainbow" else _holo_accent(color)
+        if stored_color != "rainbow":
+            self._picked_color = live_color
+        self._mode_badge.setStyleSheet(hologram_badge_style(live_color))
+        self._scroll.setStyleSheet(self._scroll_style(live_color))
+        for panel in self._panels:
+            panel.setStyleSheet(hologram_panel_style(20, live_color))
+        for label in self._section_labels:
+            label.setStyleSheet(hologram_plain_label(11, live_color, 900, 2.0))
+        self._accent_preview.setStyleSheet(
+            f"QFrame{{background:{live_color};border:1px solid {HOLO_TEXT};border-radius:14px;}}"
+        )
+        self._accent_name.setText(f"active accent · {stored_color if stored_color == 'rainbow' else live_color}")
+        self._snow.set_accent(live_color)
+        for button, primary in self._action_buttons:
+            button.setStyleSheet(hologram_button_style(primary, live_color))
+        for edit in self._game_edits.values():
+            edit.setStyleSheet(hologram_input_style(live_color))
+        self._custom_name.setStyleSheet(hologram_input_style(live_color))
+        for swatch_button, swatch in self._swatches:
+            swatch_button.setStyleSheet(self._swatch_style(swatch, swatch == stored_color, live_color))
+        for theme_button, theme_color, delete_button in self._custom_theme_buttons:
+            theme_button.setStyleSheet(
+                "QPushButton{"
+                f"background:{_rgba(theme_color, 28)};"
+                f"color:{theme_color};"
+                f"border:1px solid {_rgba(theme_color, 72)};"
+                "border-radius:10px;"
+                f"font:800 11px '{UI_FONT}';"
+                "padding:0 12px;"
+                "}"
+                f"QPushButton:hover{{background:{_rgba(theme_color, 50)};}}"
+            )
+            delete_button.setStyleSheet(hologram_button_style(False, live_color))
+
+    def update_accent_rainbow(self, color):
+        self.update_accent(color)
+
+    def set_update_status(self, text, color=HOLO_MUTED):
+        self._update_status.setText(text or f"Current build {VERSION}")
+        self._update_status.setStyleSheet(f"color:{color};font:500 11px '{MONO_FONT}';border:none;background:transparent;")
+
+
 class Dashboard(QWidget):
     def __init__(self, get_ac, set_ac, win, parent=None):
         super().__init__(parent)
@@ -6649,7 +8063,7 @@ class Dashboard(QWidget):
         self._license_refresh_timer = QTimer(self)
         self._license_refresh_timer.setInterval(5 * 60 * 1000)
         self._license_refresh_timer.timeout.connect(self._refresh_license_badge)
-        self.setStyleSheet(f"background:{BG};")
+        self.setStyleSheet("background:transparent;border:none;")
 
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
@@ -6682,18 +8096,20 @@ class Dashboard(QWidget):
                     "}"
                 )
                 tl.addWidget(btn)
+        titlebar.setFixedHeight(0)
+        titlebar.hide()
         root.addWidget(titlebar)
 
         body = QHBoxLayout()
-        body.setContentsMargins(0, 0, 0, 0)
-        body.setSpacing(0)
-        self._sidebar = Sidebar(self._get_ac())
+        body.setContentsMargins(28, 28, 28, 28)
+        body.setSpacing(24)
+        self._sidebar = HologramSidebar(self._get_ac())
         self._sidebar.page_selected.connect(self._switch)
         body.addWidget(self._sidebar)
 
         self._stack = QStackedWidget()
         self._stack.setStyleSheet("QStackedWidget{background:transparent;border:none;}")
-        self._home = OverviewPage(self._get_ac)
+        self._home = HologramOverviewPage(self._get_ac)
         self._stack.addWidget(self._home)
         self._activity = HtmlActivityPage(self._get_ac)
         self._stack.addWidget(self._activity)
@@ -6712,7 +8128,7 @@ class Dashboard(QWidget):
             self._stack.addWidget(pg)
             self._tpages[cat] = pg
             pg.catalog_changed.connect(self._refresh_dynamic_pages)
-        self._settings = HtmlSettingsPage(self._get_ac)
+        self._settings = HologramSettingsPage(self._get_ac)
         self._settings.accent_changed.connect(self._on_accent)
         self._settings.snow_changed.connect(self.set_snow_enabled)
         self._settings.game_paths_changed.connect(self._sidebar.refresh_game_detection)
@@ -6728,7 +8144,7 @@ class Dashboard(QWidget):
         root.addLayout(body, 1)
         self._snow = SnowCanvas(self._get_ac(), self, opacity_scale=0.22, size_scale=0.72)
         self._snow.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-        self._snow_on = is_snow_on()
+        self._snow_on = False
         self._snow.setVisible(self._snow_on)
         self._snow.raise_()
         self._update_logo(self._get_ac())
@@ -6740,6 +8156,17 @@ class Dashboard(QWidget):
             self._set_plan_access(False)
             QTimer.singleShot(0, self._refresh_license_badge)
             self._license_refresh_timer.start()
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        win = self.window()
+        origin = self.mapTo(win, QPoint(0, 0)) if win else QPoint(0, 0)
+        full_w = win.width() if win else self.width()
+        full_h = win.height() if win else self.height()
+        paint_hologram_backdrop(painter, self.rect(), full_w, full_h, origin.x(), origin.y(), self._get_ac())
+        painter.end()
+        super().paintEvent(event)
 
     def _switch(self, key):
         if key == "home":
@@ -6807,6 +8234,10 @@ class Dashboard(QWidget):
             pg.update_accent(color)
             for sw in pg._sw:
                 sw.set_accent(color)
+        self.update()
+        win = self.window()
+        if win is not None:
+            win.update()
 
     def _on_accent(self, color):
         self._set_ac(color)
@@ -7538,7 +8969,7 @@ class Hextra(QWidget):
         else:
             self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
             self.setMouseTracking(True)
-        self.setStyleSheet(f"background:{BG};")
+        self.setStyleSheet("background:transparent;border:none;")
         self.resize(980, 640); self.setMinimumSize(self.MW, self.MH)
 
         self._stack = QStackedWidget(self)
@@ -7546,7 +8977,7 @@ class Hextra(QWidget):
         self._dash = Dashboard(self._current_accent, self._set_accent, self)
         self._stack.addWidget(self._dash)
         self._corner_grip = CornerGrip(self._get_display_color, self)
-        self._corner_grip.setVisible(not self._native_frame)
+        self._corner_grip.setVisible(False)
         self._corner_grip.raise_()
         self._update_stack_geo()
         self._pending_motd = ""
@@ -7586,8 +9017,7 @@ class Hextra(QWidget):
         self._stack.setGeometry(E, E, self.width()-E*2, self.height()-E*2)
         g = 18
         self._corner_grip.setGeometry(self.width() - g - 3, self.height() - g - 3, g, g)
-        self._corner_grip.show()
-        self._corner_grip.raise_()
+        self._corner_grip.hide()
 
     def resizeEvent(self, e):
         super().resizeEvent(e)
@@ -7613,7 +9043,8 @@ class Hextra(QWidget):
 
     def paintEvent(self, _):
         p = QPainter(self)
-        p.fillRect(self.rect(), QColor(BG))
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        paint_hologram_backdrop(p, self.rect(), self.width(), self.height(), accent=self._get_display_color())
         p.end()
 
     def _get_display_color(self):
