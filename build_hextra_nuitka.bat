@@ -36,7 +36,7 @@ echo.
 echo Building Hextra.exe with Nuitka...
 echo.
 
-nuitka --onefile --standalone --enable-plugin=pyqt6 --windows-console-mode=disable --windows-icon-from-ico="%~dp0hextra.ico" --output-dir="%~dp0dist-nuitka" --output-filename=Hextra.exe --remove-output "%~dp0Hexa.py"
+nuitka --onefile --standalone --enable-plugin=pyqt6 --windows-console-mode=disable --output-dir="%~dp0dist-nuitka" --output-filename=Hextra.exe --remove-output "%~dp0Hexa.py"
 
 if errorlevel 1 (
     echo.

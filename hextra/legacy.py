@@ -442,7 +442,7 @@ def load_data():
     return merged
 
 def _icon_candidate_paths():
-    names = ["hextra.ico", "kHrzA.ico", "hextra_icon.ico", "defy_icon.ico"]
+    names = []
     candidates = []
     seen = set()
     frozen_exe = None

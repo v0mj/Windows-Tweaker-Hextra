@@ -28,7 +28,6 @@ Hextra/
 │   └── tokens.py
 ├── Hexa.py
 ├── build_hextra_nuitka.bat
-├── hextra.ico
 ├── requirements.txt
 └── .gitignore
 ```
