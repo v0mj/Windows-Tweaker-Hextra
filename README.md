@@ -2,7 +2,7 @@
 
 Hextra is an offline Windows desktop tweaker for performance, gaming, cleanup, restore points, presets, and quick system tools.
 
-The project is now local-first and open-source friendly:
+The project is local-first and open-source friendly:
 
 - no license server
 - no login requirement
@@ -16,18 +16,20 @@ The project is now local-first and open-source friendly:
 Hextra/
 ├── hextra/
 │   ├── __init__.py
-│   ├── main.py        # application entrypoint
-│   ├── legacy.py      # main UI, tweak logic, workers, local state
-│   ├── api.py         # local/offline compatibility helpers
-│   ├── auth.py        # local session compatibility helpers
-│   ├── ops.py         # tweak catalogue and state re-exports
-│   ├── ui.py          # UI re-exports
-│   └── workers.py     # worker re-exports
-├── icons/             # UI icon assets
-├── replica_ui/        # design tokens and UI references
-├── Hexa.py            # launcher
+│   ├── api.py
+│   ├── auth.py
+│   ├── legacy.py
+│   ├── main.py
+│   ├── ops.py
+│   ├── ui.py
+│   └── workers.py
+├── replica_ui/
+│   ├── __init__.py
+│   └── tokens.py
+├── Hexa.py
 ├── build_hextra_nuitka.bat
 ├── hextra.ico
+├── requirements.txt
 └── .gitignore
 ```
 
@@ -56,7 +58,7 @@ python Hexa.py
 build_hextra_nuitka.bat
 ```
 
-> Bump `VERSION` in `hextra/legacy.py` before building a release.
+Build output is created in `dist-nuitka/` and is not tracked in Git.
 
 ## Local Data
 

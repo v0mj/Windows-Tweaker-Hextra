@@ -9,6 +9,10 @@ __pycache__/
 *.bak*
 hardening_changes.patch
 pyarmor.bug.log
+scratch_*.py
+trace.py
+test_out.txt
+hextra-preview-*.png
 
 # Build output
 build-*/
