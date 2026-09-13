@@ -14,6 +14,11 @@ The project is local-first and open-source friendly:
 
 ```text
 Hextra/
+├── .github/
+│   └── workflows/
+│       └── build-windows.yml     # CI: builds + smoke tests the exe, publishes artifacts
+├── assets/
+│   └── hextra.ico                # exe/window icon (16..256 px)
 ├── hextra/
 │   ├── __init__.py
 │   ├── api.py
@@ -24,12 +29,19 @@ Hextra/
 │   ├── theme.py
 │   ├── ui.py
 │   └── workers.py
+├── packaging/
+│   ├── build_info.py             # single source of build metadata (version, names)
+│   ├── hextra.spec               # PyInstaller spec
+│   ├── smoke_test.ps1            # runs a built exe headlessly
+│   └── stage_artifact.ps1        # renames + hashes a built exe
 ├── replica_ui/
 │   ├── __init__.py
 │   └── tokens.py
 ├── Hexa.py
 ├── build_hextra_nuitka.bat
+├── build_hextra_pyinstaller.bat
 ├── requirements.txt
+├── requirements-build.txt
 └── .gitignore
 ```
 
@@ -64,11 +76,59 @@ python Hexa.py
 
 ## Build
 
+Two supported backends, both producing a single self-contained `Hextra.exe`
+(no Python install needed on the target machine). Install the build extras once:
+
+```bat
+python -m pip install -r requirements.txt -r requirements-build.txt
+```
+
+### Nuitka (native compile)
+
 ```bat
 build_hextra_nuitka.bat
 ```
 
-Build output is created in `dist-nuitka/` and is not tracked in Git.
+Output: `dist-nuitka\Hextra.exe`. Nuitka uses the installed Visual Studio Build
+Tools, or downloads MinGW64 automatically. Expect a few minutes.
+
+### PyInstaller (fast bundle)
+
+```bat
+build_hextra_pyinstaller.bat
+```
+
+Output: `dist\Hextra.exe` (`set HEXTRA_ONEFILE=0` for a folder build in
+`dist\Hextra\`). The spec lives in `packaging/hextra.spec`.
+
+Both scripts read the version from `hextra/legacy.py` through
+`packaging/build_info.py`, embed `assets/hextra.ico`, and finish by smoke
+testing the exe they just built.
+
+Build output is not tracked in Git.
+
+### Continuous integration
+
+`.github/workflows/build-windows.yml` runs both backends on a `windows-latest`
+runner for every pull request, every push to `master`, and on demand:
+
+1. build the exe
+2. smoke test it headlessly (`Hextra.exe --smoke-test`, offscreen Qt)
+3. rename it to `Hextra-<version>-windows-x64[-nuitka].exe`, record its SHA-256
+4. upload it as a workflow artifact
+
+Grab the artifact from the run page, or from the CLI:
+
+```bash
+gh run list --workflow build-windows.yml
+gh run download <run-id> --name Hextra-windows-x64-pyinstaller --dir out
+```
+
+Pushing a `v*` tag additionally publishes a GitHub Release with both exes and a
+combined `SHA256SUMS.txt`.
+
+The executables are unsigned, so SmartScreen warns on first run — choose
+"More info" → "Run anyway", or sign them with your own certificate.
 
 ## Local Data
 

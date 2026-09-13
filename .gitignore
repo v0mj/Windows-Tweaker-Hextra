@@ -6,6 +6,7 @@ __pycache__/
 .Python
 
 # Backups and scratch
+crash.log
 *.bak*
 hardening_changes.patch
 pyarmor.bug.log
@@ -15,9 +16,16 @@ test_out.txt
 hextra-preview-*.png
 
 # Build output
+build/
 build-*/
+dist/
 dist-*/
 obf-suno/
+artifact/
+release/
+
+# Generated at build time by packaging/hextra.spec
+packaging/version_info.txt
 
 # Archives and binaries
 *.zip

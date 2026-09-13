@@ -7,9 +7,9 @@ from pathlib import Path
 import shlex
 from replica_ui.tokens import REPLICA
 
-try:  # package import (normal path)
+if __package__:  # package import (normal path)
     from . import theme as T
-except ImportError:  # executed as a plain script
+else:  # executed as a plain script
     import theme as T
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -24,6 +24,24 @@ def _use_native_window_frame():
 
 def _is_frozen_build():
     return bool(getattr(sys, "frozen", False) or globals().get("__compiled__") is not None)
+
+def _pause_before_exit(message="\nThe application crashed. Press Enter to exit."):
+    """Block for a keypress only when someone is able to provide one.
+
+    Packaged builds have no console attached, where ``input()`` raises and hides
+    the real failure behind a second one; there the crash log is the report.
+    """
+    if _is_frozen_build():
+        return
+    try:
+        if not (sys.stdin and sys.stdin.isatty()):
+            return
+    except Exception:
+        return
+    try:
+        input(message)
+    except Exception:
+        pass
 
 APP_USER_MODEL_ID = "Hextra.kHrzA.v2"
 VERSION = "1.1.0"
@@ -256,7 +274,7 @@ try:
                                   QAbstractButton, QProgressBar, QSizePolicy, QGraphicsOpacityEffect, QGraphicsDropShadowEffect)
     import psutil
 except Exception:
-    traceback.print_exc(); input("\nPress Enter to exit."); sys.exit(1)
+    traceback.print_exc(); _pause_before_exit("\nPress Enter to exit."); sys.exit(1)
 
 _CPU_PERCENT_SAMPLES = deque(maxlen=4)
 _CPU_PERCENT_PRIMED = False
@@ -9969,4 +9987,4 @@ if __name__ == "__main__":
         _ensure_elevated_start()
         sys.exit(main())
     except Exception:
-        traceback.print_exc(); input("\nThe application crashed. Press Enter to exit.")
+        traceback.print_exc(); _pause_before_exit("\nThe application crashed. Press Enter to exit.")
