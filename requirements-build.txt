@@ -1,0 +1,12 @@
+# Build-time extras for producing the Windows executable.
+# Runtime dependencies live in requirements.txt.
+#
+#   python -m pip install -r requirements.txt -r requirements-build.txt
+
+# Single-file / standalone native build (what build_hextra_nuitka.bat uses).
+nuitka>=2.4
+ordered-set>=4.1.0
+zstandard>=0.22
+
+# Fast bundling build (what build_hextra_pyinstaller.bat / packaging/hextra.spec use).
+pyinstaller>=6.6

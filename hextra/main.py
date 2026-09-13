@@ -17,6 +17,30 @@ def _log(msg):
         pass
 
 
+def _is_interactive_console():
+    """True only when a human could actually press Enter.
+
+    Packaged builds (PyInstaller/Nuitka) ship without a console, where
+    ``input()`` raises and would hide the real error behind a second one.
+    """
+    if getattr(sys, "frozen", False) or globals().get("__compiled__") is not None:
+        return False
+    try:
+        return bool(sys.stdin and sys.stdin.isatty())
+    except Exception:
+        return False
+
+
+def _pause_before_exit(message):
+    """Wait for Enter after a crash, but only when that is possible."""
+    if not _is_interactive_console():
+        return
+    try:
+        input(message)
+    except Exception:
+        pass
+
+
 def run():
     """Start Hextra through the legacy core during the module split."""
     _log("--- run() entered ---")
@@ -38,7 +62,7 @@ def run():
         except Exception:
             pass
         traceback.print_exc()
-        input("\nThe application crashed. Press Enter to exit.")
+        _pause_before_exit("\nThe application crashed. Press Enter to exit.")
         return 1
 
 
