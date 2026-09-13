@@ -7,6 +7,11 @@ from pathlib import Path
 import shlex
 from replica_ui.tokens import REPLICA
 
+try:  # package import (normal path)
+    from . import theme as T
+except ImportError:  # executed as a plain script
+    import theme as T
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 def _env_flag(name):
@@ -244,7 +249,7 @@ def _ensure_elevated_start():
 
 try:
     from PyQt6.QtCore    import Qt, QTimer, QThread, QAbstractAnimation, QPropertyAnimation, QEasingCurve, QParallelAnimationGroup, QSequentialAnimationGroup, pyqtSignal, pyqtProperty, QRectF, QPointF, QPoint, QSize
-    from PyQt6.QtGui     import QColor, QPainter, QPen, QBrush, QPainterPath, QRegion, QFont, QFontDatabase, QIcon, QFontMetrics, QPixmap, QRadialGradient
+    from PyQt6.QtGui     import QColor, QPainter, QPen, QBrush, QPainterPath, QRegion, QFont, QFontDatabase, QIcon, QFontMetrics, QPixmap, QRadialGradient, QLinearGradient
     from PyQt6.QtWidgets import (QApplication, QWidget, QDialog, QVBoxLayout, QHBoxLayout, QLabel,
                                   QFrame, QPushButton, QStackedWidget, QColorDialog, QGridLayout,
                                   QLineEdit, QScrollArea, QFileDialog,
@@ -937,42 +942,32 @@ def _holo_secondary(ac=None):
     return QColor.fromHslF((h + 0.12) % 1.0, min(1.0, max(0.35, s * 1.04)), min(0.72, max(0.44, l * 1.04))).name()
 
 def hologram_panel_style(radius=30, accent=None):
-    accent = _holo_accent(accent)
-    return (
-        "QFrame{"
-        f"background:qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 {HOLO_PANEL_TOP},stop:1 {HOLO_PANEL_BOTTOM});"
-        f"border:1px solid {_rgba(accent, 56)};"
-        f"border-radius:{radius}px;"
-        "}"
-    )
+    return T.card_qss(_holo_accent(accent), int(min(radius, 18)))
 
 def hologram_plain_label(size=14, color=HOLO_TEXT, weight=500, spacing=0):
-    return (
-        f"color:{color};"
-        f"font-family:'{UI_FONT}';"
-        f"font-size:{size}px;"
-        f"font-weight:{weight};"
-        f"letter-spacing:{spacing}px;"
-        "border:none;"
-        "background:transparent;"
-    )
+    return T.label_qss(size, color, weight, spacing)
 
 def hologram_badge_style(color=HOLO_CYAN):
     color = _holo_accent(color)
     return (
         "QLabel{"
-        f"background:{_rgba(color, 18)};"
+        f"background:{T.rgba(color, 26)};"
         f"color:{color};"
-        f"border:1px solid {_rgba(color, 70)};"
-        "border-radius:8px;"
+        f"border:1px solid {T.rgba(color, 70)};"
+        f"border-radius:{T.R_PILL}px;"
         f"font-family:'{MONO_FONT}';"
-        "font-size:10px;"
+        f"font-size:{T.T_EYEBROW}px;"
         "font-weight:700;"
-        "padding:4px 8px;"
+        "letter-spacing:0.8px;"
+        "padding:4px 10px;"
         "}"
     )
 
 def hologram_input_style(accent=None):
+    return T.input_qss(_holo_accent(accent))
+
+
+def _hologram_input_style_unused(accent=None):
     accent = _holo_accent(accent)
     return (
         "QLineEdit{"
@@ -996,6 +991,10 @@ def hologram_input_style(accent=None):
     )
 
 def hologram_button_style(primary=False, accent=None):
+    return T.button_qss(primary, _holo_accent(accent))
+
+
+def _hologram_button_style_unused(primary=False, accent=None):
     accent = _holo_accent(accent)
     if primary:
         return (
@@ -1044,6 +1043,10 @@ def hologram_button_style(primary=False, accent=None):
     )
 
 def hologram_progress_style(accent=None):
+    return T.progress_qss(_holo_accent(accent))
+
+
+def _hologram_progress_style_unused(accent=None):
     accent = _holo_accent(accent)
     secondary = _holo_secondary(accent)
     return (
@@ -1059,34 +1062,7 @@ def hologram_progress_style(accent=None):
     )
 
 def paint_hologram_backdrop(painter, rect, width, height, offset_x=0, offset_y=0, accent=None):
-    accent = _holo_accent(accent)
-    secondary = _holo_secondary(accent)
-    accent_color = QColor(accent)
-    secondary_color = QColor(secondary)
-    painter.fillRect(rect, QColor(HOLO_BG))
-
-    top_glow = QRadialGradient(QPointF(width * 0.5 - offset_x, -height * 0.1 - offset_y), max(1, width * 0.55))
-    top_glow.setColorAt(0.0, QColor(accent_color.red(), accent_color.green(), accent_color.blue(), 72))
-    top_glow.setColorAt(0.35, QColor(accent_color.red(), accent_color.green(), accent_color.blue(), 22))
-    top_glow.setColorAt(1.0, QColor(accent_color.red(), accent_color.green(), accent_color.blue(), 0))
-    painter.fillRect(rect, QBrush(top_glow))
-
-    purple_glow = QRadialGradient(QPointF(width * 0.9 - offset_x, height * 0.8 - offset_y), max(1, width * 0.42))
-    purple_glow.setColorAt(0.0, QColor(secondary_color.red(), secondary_color.green(), secondary_color.blue(), 62))
-    purple_glow.setColorAt(0.28, QColor(secondary_color.red(), secondary_color.green(), secondary_color.blue(), 24))
-    purple_glow.setColorAt(1.0, QColor(secondary_color.red(), secondary_color.green(), secondary_color.blue(), 0))
-    painter.fillRect(rect, QBrush(purple_glow))
-
-    painter.setPen(QPen(QColor(accent_color.red(), accent_color.green(), accent_color.blue(), 28), 1))
-    step = 44
-    local_w = rect.width()
-    local_h = rect.height()
-    for x in range(0, width + step, step):
-        lx = x - offset_x
-        painter.drawLine(lx, 0, lx, local_h)
-    for y in range(0, height + step, step):
-        ly = y - offset_y
-        painter.drawLine(0, ly, local_w, ly)
+    T.paint_backdrop(painter, rect, width, height, offset_x, offset_y, _holo_accent(accent))
 
 def apply_glass_shadow(widget, accent=None, *, blur=34, y=14, alpha=54):
     if widget is None:
@@ -1885,8 +1861,6 @@ CATEGORIES = {
          "stops windows sharing updates with other pcs"),
         ("Net Throttle OFF", ['reg add "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile" /v NetworkThrottlingIndex /t REG_DWORD /d 0xffffffff /f'],
          "turns off network throttling for games"),
-        ("Net Throttle OFF", ['reg add "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile" /v NetworkThrottlingIndex /t REG_DWORD /d 0xffffffff /f'],
-         "stops windows throttling ur network"),
         ("DNS Cloudflare",   ['netsh interface ip set dns "Ethernet" static 1.1.1.1 primary', 'netsh interface ip add dns "Ethernet" 1.0.0.1 index=2'],
          "sets dns to cloudflare usually faster"),
         ("TCP Chimney OFF",  ["netsh int tcp set global chimney=disabled"],
@@ -3052,43 +3026,43 @@ class Toggle(QAbstractButton):
 class HologramToggle(Toggle):
     def __init__(self, parent=None):
         super().__init__(HOLO_CYAN, parent)
-        self.setFixedSize(34, 20)
+        self.setFixedSize(40, 22)
 
     def paintEvent(self, _):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         w, h = self.width(), self.height()
         t = self._t
-
-        off = QColor(2, 6, 23, 210)
         accent = QColor(self._accent)
-        on = QColor(accent.red(), accent.green(), accent.blue(), 86 if self._hov else 70)
+
+        off_bg = QColor(1, 4, 15, 200)
+        on_bg = QColor(accent.red(), accent.green(), accent.blue(), 92 if self._hov else 74)
         bg = QColor(
-            int(off.red() + (on.red() - off.red()) * t),
-            int(off.green() + (on.green() - off.green()) * t),
-            int(off.blue() + (on.blue() - off.blue()) * t),
-            int(off.alpha() + (on.alpha() - off.alpha()) * t),
+            int(off_bg.red() + (on_bg.red() - off_bg.red()) * t),
+            int(off_bg.green() + (on_bg.green() - off_bg.green()) * t),
+            int(off_bg.blue() + (on_bg.blue() - off_bg.blue()) * t),
+            int(off_bg.alpha() + (on_bg.alpha() - off_bg.alpha()) * t),
         )
-        edge = QColor(accent.red(), accent.green(), accent.blue(), int(48 + 90 * t + (18 if self._hov else 0)))
+        edge_alpha = int(46 + 96 * t + (22 if self._hov else 0))
+        edge = QColor(accent.red(), accent.green(), accent.blue(), min(255, edge_alpha))
         track = QRectF(0.5, 0.5, max(0.0, w - 1.0), max(0.0, h - 1.0))
         p.setBrush(QBrush(bg))
         p.setPen(QPen(edge, 1))
         p.drawRoundedRect(track, track.height() / 2.0, track.height() / 2.0)
 
-        dia = 9.5
+        dia = 12.0
         y = (h - dia) / 2.0
-        margin = 5.0
+        margin = 4.0
         x = margin + (w - (margin * 2.0) - dia) * t
-        knob = QColor(HOLO_TEXT if self._on else HOLO_MUTED)
+        if self._on:
+            halo = QColor(accent.red(), accent.green(), accent.blue(), 60)
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(QBrush(halo))
+            p.drawEllipse(QRectF(x - 3, y - 3, dia + 6, dia + 6))
+        knob = QColor(T.TEXT) if self._on else QColor(T.TEXT_DIM)
         p.setBrush(QBrush(knob))
         p.setPen(Qt.PenStyle.NoPen)
         p.drawEllipse(QRectF(x, y, dia, dia))
-        if self._on:
-            glow = QColor(34, 211, 238, 80)
-            p.setBrush(QBrush(glow))
-            p.drawEllipse(QRectF(x - 3, y - 3, dia + 6, dia + 6))
-            p.setBrush(QBrush(QColor(HOLO_TEXT)))
-            p.drawEllipse(QRectF(x, y, dia, dia))
         p.end()
 
 class SnowCanvas(QWidget):
@@ -3417,166 +3391,305 @@ class Sidebar(QFrame):
             f"QPushButton:hover{{background:{PANEL};color:{MAIN};}}"
         )
 
+_NAV_ICON = {
+    "home": "home",
+    "tweak:FPS Boost": "gauge",
+    "tweak:CPU": "cpu",
+    "tweak:GPU": "gpu",
+    "tweak:RAM": "ram",
+    "tweak:Input": "input",
+    "tweak:Network": "network",
+    "tweak:Power": "power",
+    "tweak:Debloat": "trash",
+    "tweak:Privacy": "shield",
+    "tweak:Cleanup": "sparkle",
+    "tweak:Visual": "eye",
+    "tweak:Services": "sliders",
+    "uninstaller": "box",
+    "profiles": "layers",
+    "quick": "bolt",
+    "restore": "restore",
+    "settings": "gear",
+    "activity": "pulse",
+    "account": "user",
+}
+for _gk in GAME_TAB_KEYS:
+    _NAV_ICON.setdefault(_gk, "gamepad")
+
+
 class HologramSidebar(QFrame):
     page_selected = pyqtSignal(str)
+
+    _NAV_SECTIONS = [
+        ("Overview", [("home", "Core")]),
+        ("Performance", [
+            ("tweak:FPS Boost", "FPS Boost"),
+            ("tweak:CPU", "CPU"),
+            ("tweak:GPU", "GPU"),
+            ("tweak:RAM", "RAM"),
+            ("tweak:Input", "Input"),
+            ("tweak:Network", "Network"),
+            ("tweak:Power", "Power"),
+        ]),
+        ("System", [
+            ("tweak:Debloat", "Debloat"),
+            ("tweak:Privacy", "Privacy"),
+            ("tweak:Cleanup", "Cleanup"),
+            ("tweak:Visual", "Visual"),
+            ("tweak:Services", "Services"),
+            ("uninstaller", "Uninstaller"),
+        ]),
+        ("Games", [
+            ("tweak:Roblox", "Roblox"),
+            ("tweak:FiveM", "FiveM"),
+            ("tweak:Valorant", "Valorant"),
+            ("tweak:CS2", "CS2"),
+            ("tweak:Minecraft", "Minecraft"),
+            ("tweak:Fortnite", "Fortnite"),
+            ("tweak:Apex", "Apex"),
+        ]),
+        ("Tools", [
+            ("profiles", "Presets"),
+            ("quick", "Quick Tools"),
+            ("restore", "Recovery"),
+            ("settings", "Settings"),
+        ]),
+    ]
 
     def __init__(self, accent, parent=None):
         super().__init__(parent)
         self._accent = _holo_accent(accent)
         self._active = "home"
         self._nav_btns = {}
+        self._section_headers = {}
+        self._section_items = {}
+        self._games_expanded = False
         self._game_detection = {game: False for game in GAME_TAB_KEYS.values()}
-        self.setFixedWidth(310)
-        self.setStyleSheet(hologram_panel_style(30, self._accent))
+        self.setFixedWidth(268)
+        self.setObjectName("HextraSidebar")
+        self.setStyleSheet(self._shell_style())
 
         root = QVBoxLayout(self)
-        root.setContentsMargins(24, 24, 24, 24)
-        root.setSpacing(0)
+        root.setContentsMargins(14, 14, 14, 14)
+        root.setSpacing(10)
 
-        self._brand = QLabel()
-        self._brand.setTextFormat(Qt.TextFormat.RichText)
-        self._brand.setStyleSheet(
-            f"font-family:'{UI_FONT}';font-size:28px;font-weight:900;letter-spacing:1.7px;border:none;background:transparent;"
-        )
-        root.addWidget(self._brand)
+        # --- brand -------------------------------------------------------
+        brand = QWidget()
+        brand.setStyleSheet("background:transparent;border:none;")
+        bl = QHBoxLayout(brand)
+        bl.setContentsMargins(2, 0, 2, 0)
+        bl.setSpacing(10)
+        self._brand_mark = QLabel()
+        self._brand_mark.setFixedSize(32, 32)
+        self._brand_mark.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        bl.addWidget(self._brand_mark)
+        word = QVBoxLayout()
+        word.setContentsMargins(0, 0, 0, 0)
+        word.setSpacing(1)
+        self._brand = QLabel("Hextra")
+        self._brand.setStyleSheet(T.label_qss(17.5, T.TEXT, 800, 0.4))
+        self._tag = QLabel("Offline tweaker")
+        self._tag.setStyleSheet(T.label_qss(10.5, T.TEXT_DIM, 500, 0.2))
+        word.addWidget(self._brand)
+        word.addWidget(self._tag)
+        bl.addLayout(word, 1)
+        self._ver = T.Pill(f"v{VERSION}", "muted", self._accent)
+        bl.addWidget(self._ver, 0, Qt.AlignmentFlag.AlignVCenter)
+        root.addWidget(brand)
 
-        self._mode = QLabel("HOLOGRAM STACK")
-        self._mode.setStyleSheet(hologram_plain_label(12, HOLO_MUTED, 500, 3.0) + "text-transform:uppercase;")
-        root.addWidget(self._mode)
-
-        root.addSpacing(34)
-
+        # --- nav ---------------------------------------------------------
         self._scroll = SmoothScrollArea()
         self._scroll.setWidgetResizable(True)
         self._scroll.setFrameShape(QFrame.Shape.NoFrame)
         self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self._scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-        self._scroll.setStyleSheet(
-            "QScrollArea{background:transparent;border:none;}"
-            "QScrollBar:vertical{background:transparent;width:6px;border:none;margin:6px 0 6px 0;}"
-            f"QScrollBar::handle:vertical{{background:{_rgba(self._accent, 58)};border:none;border-radius:3px;min-height:26px;}}"
-            "QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical{height:0;}"
-        )
         content = QWidget()
         content.setStyleSheet("background:transparent;border:none;")
         nav = QVBoxLayout(content)
-        nav.setContentsMargins(0, 0, 0, 0)
-        nav.setSpacing(10)
+        nav.setContentsMargins(2, 0, 2, 0)
+        nav.setSpacing(1)
 
-        sections = [
-            ("CORE", [("home", "Core")]),
-            ("PERFORMANCE", [
-                ("tweak:FPS Boost", "FPS Boost"),
-                ("tweak:CPU", "CPU"),
-                ("tweak:GPU", "GPU"),
-                ("tweak:RAM", "RAM"),
-                ("tweak:Input", "Input"),
-                ("tweak:Network", "Network"),
-                ("tweak:Power", "Power"),
-            ]),
-            ("SYSTEM", [
-                ("tweak:Debloat", "Debloat"),
-                ("tweak:Privacy", "Privacy"),
-                ("tweak:Cleanup", "Cleanup"),
-                ("tweak:Visual", "Visual"),
-                ("tweak:Services", "Services"),
-                ("uninstaller", "Uninstaller"),
-            ]),
-            ("GAMES", [
-                ("tweak:Roblox", "Roblox"),
-                ("tweak:FiveM", "FiveM"),
-                ("tweak:Valorant", "Valorant"),
-                ("tweak:CS2", "CS2"),
-                ("tweak:Minecraft", "Minecraft"),
-                ("tweak:Fortnite", "Fortnite"),
-                ("tweak:Apex", "Apex"),
-            ]),
-            ("TOOLS", [
-                ("profiles", "Presets"),
-                ("quick", "Quick Tools"),
-                ("restore", "Recovery"),
-                ("settings", "Settings"),
-            ]),
-        ]
-
-        for section, items in sections:
-            sep = QLabel(section)
-            sep.setStyleSheet(hologram_plain_label(11, HOLO_MUTED, 900, 2.1) + "padding-top:8px;")
-            nav.addWidget(sep)
+        for section, items in self._NAV_SECTIONS:
+            header = QPushButton(section.upper())
+            header.setCursor(Qt.CursorShape.PointingHandCursor)
+            header.setFixedHeight(19)
+            header.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+            header.clicked.connect(lambda _=False, s=section: self._toggle_section(s))
+            nav.addWidget(header)
+            self._section_headers[section] = header
+            self._section_items[section] = []
             for key, label in items:
                 button = QPushButton(label)
-                button.setFixedHeight(38)
+                button.setFixedHeight(27)
                 button.setCursor(Qt.CursorShape.PointingHandCursor)
+                button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
                 button.clicked.connect(lambda _=False, k=key: self._select(k))
                 nav.addWidget(button)
                 self._nav_btns[key] = button
-            nav.addSpacing(8)
+                self._section_items[section].append(button)
+            nav.addSpacing(3)
         nav.addStretch(1)
         self._scroll.setWidget(content)
         root.addWidget(self._scroll, 1)
 
-        self._sys = QFrame()
-        self._sys.setStyleSheet(
-            f"QFrame{{background:transparent;border:none;border-top:1px solid {HOLO_LINE};border-radius:0;}}"
-        )
-        sys_lay = QVBoxLayout(self._sys)
-        sys_lay.setContentsMargins(0, 18, 0, 0)
-        sys_lay.setSpacing(0)
+        # --- footer ------------------------------------------------------
+        footer = QFrame()
+        footer.setObjectName("SidebarFooter")
+        fl = QVBoxLayout(footer)
+        fl.setContentsMargins(8, 8, 8, 8)
+        fl.setSpacing(7)
+
+        self._acct = QPushButton()
+        self._acct.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._acct.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self._acct.setFixedHeight(36)
+        self._acct.clicked.connect(lambda: self.page_selected.emit("account"))
+        al = QHBoxLayout(self._acct)
+        al.setContentsMargins(10, 0, 10, 0)
+        al.setSpacing(9)
+        self._acct_dot = QLabel()
+        self._acct_dot.setFixedSize(9, 9)
+        al.addWidget(self._acct_dot)
+        self._acct_text = QVBoxLayout()
+        self._acct_text.setContentsMargins(0, 0, 0, 0)
+        self._acct_text.setSpacing(0)
+        self._acct_name = QLabel("guest")
+        self._acct_name.setStyleSheet(T.label_qss(12.5, T.TEXT, 700))
+        self._acct_plan = QLabel("No account")
+        self._acct_plan.setStyleSheet(T.label_qss(10.5, T.TEXT_DIM, 500))
+        self._acct_text.addWidget(self._acct_name)
+        self._acct_text.addWidget(self._acct_plan)
+        al.addLayout(self._acct_text, 1)
+        self._acct_chev = QLabel()
+        self._acct_chev.setFixedSize(12, 12)
+        al.addWidget(self._acct_chev)
+        fl.addWidget(self._acct)
+
+        stats = QFrame()
+        stats.setStyleSheet("background:transparent;border:none;")
+        sl = QHBoxLayout(stats)
+        sl.setContentsMargins(0, 0, 0, 0)
+        sl.setSpacing(6)
         self._sys_values = {}
-        for label, value in [("Offline", "YES"), ("Restore", "READY"), ("Queue", "12")]:
-            row = QWidget()
-            row.setStyleSheet("background:transparent;border:none;")
-            row_lay = QHBoxLayout(row)
-            row_lay.setContentsMargins(0, 0, 0, 0)
-            row_lay.setSpacing(8)
-            left = QLabel(label)
-            left.setStyleSheet(hologram_plain_label(14, HOLO_MUTED, 500))
-            right = QLabel(value)
-            right.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-            right.setStyleSheet(hologram_plain_label(14, self._accent, 800))
-            row_lay.addWidget(left)
-            row_lay.addStretch(1)
-            row_lay.addWidget(right)
-            sys_lay.addWidget(row)
-            self._sys_values[label.lower()] = right
-        root.addWidget(self._sys)
+        self._sys_labels = {}
+        for label in ("Mode", "Restore", "Staged"):
+            cell = QFrame()
+            cell.setStyleSheet(
+                "QFrame{background:transparent;border:none;border-radius:8px;}"
+            )
+            cl = QVBoxLayout(cell)
+            cl.setContentsMargins(6, 5, 6, 5)
+            cl.setSpacing(1)
+            cap = QLabel(label.upper())
+            cap.setStyleSheet(T.label_qss(8.5, T.TEXT_DIM, 800, 1.1, mono=True))
+            val = QLabel("—")
+            val.setStyleSheet(T.label_qss(11.5, T.TEXT_MUTED, 700))
+            cl.addWidget(cap)
+            cl.addWidget(val)
+            sl.addWidget(cell, 1)
+            self._sys_values[label.lower()] = val
+            self._sys_labels[label.lower()] = cap
+        fl.addWidget(stats)
+        root.addWidget(footer)
 
         self.set_accent(self._accent)
+        self.set_account_summary("local", "Open Source", True)
 
-    def _button_style(self, active=False):
-        accent = self._accent
+    # -- styling ----------------------------------------------------------
+    def _shell_style(self):
+        ac = self._accent
+        return (
+            "QFrame#HextraSidebar{"
+            f"background:qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 {T.rgba(T.SURFACE_TOP, 214)},stop:1 {T.rgba(T.SURFACE_BOTTOM, 190)});"
+            f"border:1px solid {T.rgba(ac, 30)};"
+            "border-radius:18px;"
+            "}"
+            "QFrame#SidebarFooter{"
+            f"background:{T.rgba('#01040f', 120)};"
+            f"border:1px solid {T.rgba(ac, 22)};"
+            "border-radius:12px;"
+            "}"
+            + T.scroll_area_qss(ac, 6)
+        )
+
+    def _item_style(self, active=False, detected=None):
+        ac = self._accent
         if active:
             return (
                 "QPushButton{"
-                f"background:{_rgba(accent, 20)};"
-                f"color:{HOLO_TEXT};"
-                f"border:1px solid {accent};"
-                "border-radius:18px;"
-                f"font-family:'{UI_FONT}';font-size:14px;font-weight:900;"
-                "text-align:left;"
-                "padding:0 14px;"
+                f"background:qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 {T.rgba(ac, 46)},stop:1 {T.rgba(ac, 14)});"
+                f"color:{T.TEXT};"
+                f"border:1px solid {T.rgba(ac, 78)};"
+                "border-radius:9px;"
+                f"font-family:'{T.UI_FONT}';font-size:12.5px;font-weight:700;"
+                "text-align:left;padding:0 9px;"
                 "}"
             )
         return (
             "QPushButton{"
             "background:transparent;"
-            f"color:{HOLO_MUTED};"
+            f"color:{T.TEXT_MUTED};"
             "border:1px solid transparent;"
-            "border-radius:18px;"
-            f"font-family:'{UI_FONT}';font-size:14px;font-weight:900;"
-            "text-align:left;"
-            "padding:0 14px;"
+            "border-radius:9px;"
+            f"font-family:'{T.UI_FONT}';font-size:12.5px;font-weight:600;"
+            "text-align:left;padding:0 10px;"
             "}"
             "QPushButton:hover{"
-            f"color:{HOLO_TEXT};"
-            f"border-color:{_rgba(accent, 56)};"
-            f"background:{_rgba(accent, 12)};"
+            f"color:{T.TEXT};"
+            f"background:{T.rgba(ac, 16)};"
+            f"border-color:{T.rgba(ac, 40)};"
             "}"
         )
 
+    def _header_style(self, collapsible=False):
+        ac = self._accent
+        return (
+            "QPushButton{"
+            f"color:{T.mix(ac, T.TEXT_DIM, 0.55)};"
+            "background:transparent;border:none;"
+            f"font-family:'{T.MONO_FONT}';font-size:9.5px;font-weight:800;letter-spacing:1.6px;"
+            "text-align:left;padding:0 10px;"
+            "}"
+            + (f"QPushButton:hover{{color:{T.mix(ac, T.TEXT_MUTED, 0.45)};}}" if collapsible else "")
+        )
+
+    # -- behaviour --------------------------------------------------------
+    def _toggle_section(self, section):
+        if section != "Games":
+            return
+        self._games_expanded = not self._games_expanded
+        self._apply_section_visibility()
+        self._refresh_button_styles()
+
+    def _apply_section_visibility(self):
+        for section, buttons in self._section_items.items():
+            visible = True if section != "Games" else self._games_expanded
+            for btn in buttons:
+                btn.setVisible(visible)
+            header = self._section_headers.get(section)
+            if header is not None and section == "Games":
+                arrow = "▾" if self._games_expanded else "▸"
+                detected = sum(1 for v in self._game_detection.values() if v)
+                suffix = f"  ·  {detected} detected" if detected else ""
+                header.setText(f"{arrow}  {section.upper()}{suffix}")
+
     def _refresh_button_styles(self):
         for key, button in self._nav_btns.items():
-            button.setStyleSheet(self._button_style(key == self._active))
+            active = key == self._active
+            button.setStyleSheet(self._item_style(active))
+            kind = _NAV_ICON.get(key, "dot")
+            game = GAME_TAB_KEYS.get(key)
+            if game and self._game_detection.get(game):
+                tint = T.OK
+            elif active:
+                tint = self._accent
+            else:
+                tint = T.TEXT_DIM
+            button.setIcon(T.icon(kind, tint, 15))
+            button.setIconSize(QSize(15, 15))
+        for section, header in self._section_headers.items():
+            header.setStyleSheet(self._header_style(section == "Games"))
+        self._apply_section_visibility()
 
     def _select(self, key):
         self._active = key
@@ -3585,34 +3698,82 @@ class HologramSidebar(QFrame):
 
     def set_accent(self, ac):
         self._accent = _holo_accent(ac)
-        self.setStyleSheet(hologram_panel_style(30, self._accent))
-        self._brand.setText(f"<span style='color:#e0f7ff;'>HEX</span><span style='color:{self._accent};'>TRA</span>")
-        self._scroll.setStyleSheet(
-            "QScrollArea{background:transparent;border:none;}"
-            "QScrollBar:vertical{background:transparent;width:6px;border:none;margin:6px 0 6px 0;}"
-            f"QScrollBar::handle:vertical{{background:{_rgba(self._accent, 58)};border:none;border-radius:3px;min-height:26px;}}"
-            "QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical{height:0;}"
+        self.setStyleSheet(self._shell_style())
+        self._brand_mark.setPixmap(
+            T.icon("bolt", self._accent, 16).pixmap(16, 16)
         )
-        for label, value in self._sys_values.items():
-            if label != "restore":
-                value.setStyleSheet(hologram_plain_label(14, self._accent, 800))
+        self._brand_mark.setStyleSheet(
+            "QLabel{"
+            f"background:{T.rgba(self._accent, 30)};"
+            f"border:1px solid {T.rgba(self._accent, 80)};"
+            "border-radius:10px;"
+            "}"
+        )
+        self._ver.set_accent(self._accent)
+        self._acct_chev.setPixmap(T.icon("chevron", T.TEXT_DIM, 12).pixmap(12, 12))
+        self._scroll.setStyleSheet(T.scroll_area_qss(self._accent, 6))
         self._refresh_button_styles()
 
     def refresh_game_detection(self):
+        try:
+            detected = detect_games()
+        except Exception:
+            detected = []
+        self._game_detection = {game: game in detected for game in GAME_TAB_KEYS.values()}
+        for key, game in GAME_TAB_KEYS.items():
+            button = self._nav_btns.get(key)
+            if not button:
+                continue
+            if self._game_detection.get(game, False):
+                button.setToolTip(f"{game} was detected on this PC.")
+            else:
+                button.setToolTip(f"{game} was not detected on this PC.")
+        if any(self._game_detection.values()):
+            self._games_expanded = True
         self._refresh_button_styles()
 
     def set_account_summary(self, name, plan, online=True):
-        if "offline" in self._sys_values:
-            self._sys_values["offline"].setText("YES")
+        self._acct_name.setText(str(name or "guest"))
+        self._acct_plan.setText(str(plan or "No account"))
+        self._acct_dot.setStyleSheet(
+            "QLabel{"
+            f"background:{T.OK if online else T.TEXT_DIM};"
+            "border-radius:4px;"
+            "}"
+        )
+        self._acct.setStyleSheet(
+            "QPushButton{"
+            f"background:{T.rgba('#01040f', 110)};"
+            f"border:1px solid {T.rgba(self._accent, 26)};"
+            "border-radius:10px;"
+            "}"
+            "QPushButton:hover{"
+            f"border-color:{T.rgba(self._accent, 70)};"
+            f"background:{T.rgba(self._accent, 14)};"
+            "}"
+        )
+        if "mode" in self._sys_values:
+            self._sys_values["mode"].setText("Offline" if OFFLINE_MODE else ("Online" if online else "Offline"))
+            self._sys_values["mode"].setStyleSheet(T.label_qss(11.5, self._accent, 700))
         if "restore" in self._sys_values:
-            restore_ready = has_restore_point()
-            self._sys_values["restore"].setText("READY" if restore_ready else "MISSING")
+            ready = False
+            try:
+                ready = has_restore_point()
+            except Exception:
+                ready = False
+            self._sys_values["restore"].setText("Ready" if ready else "None")
             self._sys_values["restore"].setStyleSheet(
-                hologram_plain_label(14, HOLO_GREEN if restore_ready else HOLO_PINK, 800)
+                T.label_qss(11.5, T.OK if ready else T.ERR, 700)
             )
-        if "queue" in self._sys_values:
-            self._sys_values["queue"].setText("12")
-
+        if "staged" in self._sys_values:
+            try:
+                count = len(load_selected_tweaks())
+            except Exception:
+                count = 0
+            self._sys_values["staged"].setText(str(count))
+            self._sys_values["staged"].setStyleSheet(
+                T.label_qss(11.5, T.TEXT if count else T.TEXT_DIM, 700)
+            )
 class RestoreWarnDialog(QWidget):
     confirmed  = pyqtSignal()
     go_restore = pyqtSignal()
@@ -3767,98 +3928,171 @@ class RestorePage(QWidget):
         )
 
 
+_CATEGORY_BLURB = {
+    "FPS Boost": "Frame-rate and rendering tweaks with the safest balance of gain and stability.",
+    "CPU": "Scheduler, priority and power behaviour for the processor.",
+    "GPU": "Graphics driver and rendering pipeline settings.",
+    "RAM": "Memory management, cache and working-set behaviour.",
+    "Input": "Mouse, keyboard and input latency settings.",
+    "Network": "Stack, DNS and throughput settings that cut latency online.",
+    "Power": "Power plans, startup behaviour and wake behaviour.",
+    "Debloat": "Remove preinstalled packages and background noise.",
+    "Privacy": "Telemetry, advertising and data collection switches.",
+    "Cleanup": "Temp files, caches and other accumulated clutter.",
+    "Visual": "Animations and effects that cost frames for little benefit.",
+    "Services": "Windows services tuned or disabled for gaming.",
+}
+
+
+_ACRONYMS = {
+    "dns", "tcp", "ip", "udp", "gpu", "cpu", "ram", "fps", "os", "ssd", "hdd",
+    "usb", "hpet", "msi", "isr", "dpc", "ntfs", "ui", "ux", "vm", "bios",
+    "uefi", "nic", "qos", "mtu", "tls", "ipv4", "ipv6", "dx", "vram", "csr",
+    "dvr", "hpct", "acpi", "pci", "dma", "wddm", "vsync", "gpo", "lan", "wlan",
+}
+
+
+def _human(text, period=True):
+    text = str(text or "").strip()
+    if not text:
+        return ""
+    if text[0].islower():
+        text = text[0].upper() + text[1:]
+
+    def _fix(match):
+        word = match.group(0)
+        low = word.lower()
+        if low in _ACRONYMS:
+            return word.upper()
+        return word
+
+    _PROPER = {
+        "windows": "Windows", "cloudflare": "Cloudflare", "directx": "DirectX",
+        "nagle": "Nagle", "roblox": "Roblox", "minecraft": "Minecraft",
+        "fortnite": "Fortnite", "valorant": "Valorant", "steam": "Steam",
+        "xbox": "Xbox", "onedrive": "OneDrive", "cortana": "Cortana",
+        "pcs": "PCs", "ur": "your", "pls": "please", "dont": "don't",
+        "cant": "can't", "wont": "won't",
+    }
+
+    def _fix2(match):
+        word = match.group(0)
+        return _PROPER.get(word.lower(), word)
+
+    text = re.sub(r"[A-Za-z][A-Za-z0-9']*", _fix2, text)
+    text = re.sub(r"[A-Za-z][A-Za-z0-9]*", _fix, text)
+    if period and not text.endswith((".", "!", "?")):
+        text += "."
+    return text
+
+
+_STATUS_TONE = {
+    "applied": "ok",
+    "partial": "warn",
+    "not applied": "muted",
+    "unknown": "muted",
+}
+
+
 class TweakPage(QWidget):
     tweaks_applied = pyqtSignal()
     catalog_changed = pyqtSignal()
 
     def __init__(self, cat, get_ac, parent=None, provider=None, title=None):
-        super().__init__(parent); self._cat = cat; self._get_ac = get_ac
+        super().__init__(parent)
+        self._cat = cat
+        self._get_ac = get_ac
         self._provider = provider or (lambda cat=cat: category_entries(cat))
         self._title = title or cat
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self._worker = None
         self._plan_active = False
         self._rows = []
-        root = QVBoxLayout(self); root.setContentsMargins(28,28,28,0); root.setSpacing(0)
-
-        hdr = QFrame()
-        self._hdr = hdr
-        hdr.setStyleSheet("QFrame{background:transparent;border:none;}")
-        hl = QVBoxLayout(hdr); hl.setContentsMargins(0,0,0,0); hl.setSpacing(4)
         ac = self._get_ac()
-        top = QHBoxLayout(); top.setContentsMargins(0,0,0,0); top.setSpacing(8)
-        title_col = QVBoxLayout(); title_col.setContentsMargins(0,0,0,0); title_col.setSpacing(2)
-        self._section_lbl = QLabel(self._section_caption())
-        self._section_lbl.setStyleSheet(
-            f"color:{HOLO_MUTED};font:500 11px '{MONO_FONT}';border:none;background:transparent;"
+
+        root = QVBoxLayout(self)
+        root.setContentsMargins(4, 4, 8, 0)
+        root.setSpacing(14)
+
+        self._header = T.PageHeader(
+            self._section_caption(), self._title, _CATEGORY_BLURB.get(cat, ""), ac
         )
-        self._cat_lbl = QLabel(self._title)
-        self._cat_lbl.setStyleSheet(
-            f"color:{HOLO_TEXT};font-family:'{UI_FONT}';font-size:25px;font-weight:300;border:none;background:transparent;"
-        )
-        title_col.addWidget(self._cat_lbl)
-        title_col.addWidget(self._section_lbl)
-        top.addLayout(title_col)
-        top.addStretch()
-        self._count_lbl = QLabel("0 tweaks")
-        self._count_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._count_lbl.setStyleSheet(hologram_badge_style(ac))
-        top.addWidget(self._count_lbl, 0, Qt.AlignmentFlag.AlignTop)
-        hl.addLayout(top)
-        self._summary = _lbl("", MID, size=10)
-        self._summary.hide()
+        root.addWidget(self._header)
+
+        # --- toolbar ------------------------------------------------------
+        toolbar = QWidget()
+        toolbar.setStyleSheet("background:transparent;border:none;")
+        tl = QHBoxLayout(toolbar)
+        tl.setContentsMargins(0, 0, 0, 0)
+        tl.setSpacing(8)
         self._search = QLineEdit()
-        self._search.setPlaceholderText("filter tweaks...")
+        self._search.setPlaceholderText(f"Search {self._title.lower()} tweaks…")
         self._search.setFixedHeight(38)
         self._search.setClearButtonEnabled(True)
-        self._search.setStyleSheet(hologram_input_style(ac))
+        self._search.setStyleSheet(T.input_qss(ac))
+        self._search.addAction(T.icon("search", T.TEXT_DIM, 15), QLineEdit.ActionPosition.LeadingPosition)
         self._search.textChanged.connect(self._apply_filters)
-        tools = QHBoxLayout(); tools.setContentsMargins(0,18,0,10); tools.setSpacing(8)
-        tools.addWidget(self._search, 1)
-        for label, fn, attr in [("all", lambda: self._set_all(True), "_all_btn"),
-                                ("none", lambda: self._set_all(False), "_none_btn"),
-                                ("check", self._refresh_statuses, "_status_btn")]:
-            width = 74 if label == "check" else 66
-            b = QPushButton(label); b.setFixedSize(width, 38); b.setCursor(Qt.CursorShape.PointingHandCursor)
-            b.setStyleSheet(hologram_button_style(False, ac)); b.clicked.connect(fn); tools.addWidget(b)
-            setattr(self, attr, b)
-        hl.addLayout(tools)
-        root.addWidget(hdr)
+        tl.addWidget(self._search, 1)
+        self._all_btn = T.make_button("Select all", False, ac, height=38)
+        self._all_btn.clicked.connect(lambda: self._set_all(True))
+        self._none_btn = T.make_button("Clear", False, ac, height=38)
+        self._none_btn.clicked.connect(lambda: self._set_all(False))
+        self._status_btn = T.make_button("Refresh status", False, ac, "refresh", height=38)
+        self._status_btn.clicked.connect(self._refresh_statuses)
+        tl.addWidget(self._all_btn)
+        tl.addWidget(self._none_btn)
+        tl.addWidget(self._status_btn)
+        root.addWidget(toolbar)
 
-        sc = SmoothScrollArea(); sc.setWidgetResizable(True)
+        # --- list ---------------------------------------------------------
+        sc = SmoothScrollArea()
+        sc.setWidgetResizable(True)
         sc.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        sc.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        sc.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         sc.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        sc.setStyleSheet(f"QScrollArea{{border:none;background:transparent;}}"
-                         f"QScrollBar:vertical{{background:transparent;width:7px;border:none;margin:6px 0 6px 0;}}"
-                         f"QScrollBar::handle:vertical{{background:{_rgba(ac, 62)};border:1px solid {_rgba(ac, 82)};border-radius:3px;min-height:26px;}}"
-                         f"QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical{{height:0;}}")
         self._sc = sc
-        cw = QWidget(); cw.setStyleSheet(f"background:transparent;")
+        cw = QWidget()
+        cw.setStyleSheet("background:transparent;border:none;")
         cw.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.MinimumExpanding)
         self._cw = cw
-        lst = QVBoxLayout(cw); lst.setContentsMargins(0,16,0,4); lst.setSpacing(6)
+        lst = QVBoxLayout(cw)
+        lst.setContentsMargins(2, 2, 6, 8)
+        lst.setSpacing(8)
         self._lst = lst
-        sc.setWidget(cw); root.addWidget(sc, 1)
-
-        bot = QWidget(); bot.setFixedHeight(62)
-        bot.setStyleSheet("background:transparent;border:none;")
-        bl = QHBoxLayout(bot); bl.setContentsMargins(0,12,0,0); bl.setSpacing(12)
-        self._stat = QLabel("0 selected")
-        self._stat.setStyleSheet(
-            f"color:{HOLO_MUTED};font:500 11px '{MONO_FONT}';border:none;background:transparent;"
+        self._empty = T.EmptyState(
+            "search", "No tweaks match that search",
+            "Try a different keyword, or clear the search box to see the full category.",
+            ac,
         )
-        self._prog = _prog_bar(ac); self._prog.setFixedWidth(156); self._prog.setFixedHeight(6)
-        self._prog.setStyleSheet(hologram_progress_style(ac))
-        self._prog.setVisible(True)
-        self._abtn = QPushButton("apply selected"); self._abtn.setFixedSize(144, 38)
-        self._abtn.setCursor(Qt.CursorShape.PointingHandCursor); self._abtn.setStyleSheet(hologram_button_style(True, ac))
+        self._empty.hide()
+        lst.addWidget(self._empty)
+        sc.setWidget(cw)
+        root.addWidget(sc, 1)
+
+        # --- footer -------------------------------------------------------
+        footer = QWidget()
+        footer.setFixedHeight(56)
+        footer.setStyleSheet("background:transparent;border:none;")
+        fl = QHBoxLayout(footer)
+        fl.setContentsMargins(2, 0, 2, 6)
+        fl.setSpacing(12)
+        self._stat = QLabel("0 staged")
+        self._stat.setStyleSheet(T.label_qss(T.T_SMALL, T.TEXT_MUTED, 600))
+        self._prog = QProgressBar()
+        self._prog.setFixedWidth(140)
+        self._prog.setFixedHeight(6)
+        self._prog.setTextVisible(False)
+        self._prog.setRange(0, 100)
+        self._prog.setStyleSheet(T.progress_qss(ac))
+        self._abtn = T.make_button("Apply selected", True, ac, "bolt", height=40)
+        self._abtn.setFixedWidth(168)
         self._abtn.clicked.connect(self._apply)
-        bl.addWidget(self._stat)
-        bl.addWidget(self._prog)
-        bl.addStretch()
-        bl.addWidget(self._abtn)
-        root.addWidget(bot)
+        fl.addWidget(self._stat)
+        fl.addWidget(self._prog, 0, Qt.AlignmentFlag.AlignVCenter)
+        fl.addStretch(1)
+        fl.addWidget(self._abtn)
+        root.addWidget(footer)
+
         self._build_entries()
         self._status_worker = None
         self._status_active = False
@@ -3866,88 +4100,81 @@ class TweakPage(QWidget):
         self._status_poll.setInterval(4000)
         self._status_poll.timeout.connect(self._start_status_worker)
 
+    # -- header / captions ------------------------------------------------
     def _section_caption(self):
         mapping = {
-            "FPS Boost": "PERFORMANCE TUNING",
-            "CPU": "PERFORMANCE TUNING",
-            "GPU": "PERFORMANCE TUNING",
-            "RAM": "PERFORMANCE TUNING",
-            "Input": "PERFORMANCE TUNING",
-            "Network": "NETWORK",
-            "Power": "NETWORK",
-            "Privacy": "PRIVACY & SECURITY",
-            "Debloat": "PRIVACY & SECURITY",
-            "Visual": "PRIVACY & SECURITY",
+            "FPS Boost": "PERFORMANCE",
+            "CPU": "PERFORMANCE",
+            "GPU": "PERFORMANCE",
+            "RAM": "PERFORMANCE",
+            "Input": "PERFORMANCE",
+            "Network": "CONNECTIVITY",
+            "Power": "CONNECTIVITY",
+            "Privacy": "PRIVACY & HYGIENE",
+            "Debloat": "PRIVACY & HYGIENE",
+            "Visual": "PRIVACY & HYGIENE",
             "Services": "MAINTENANCE",
             "Cleanup": "MAINTENANCE",
         }
-        return mapping.get(self._cat, "TWEAKS")
+        return mapping.get(self._cat, "GAME TUNING")
 
+    # -- rows -------------------------------------------------------------
     def _clear_rows(self):
         while self._lst.count():
             item = self._lst.takeAt(0)
             widget = item.widget()
-            if widget is not None:
+            if widget is None:
+                continue
+            widget.setParent(None)
+            if widget is not self._empty:
                 widget.deleteLater()
-
-    def _status_style(self, color):
-        return (
-            f"background:{color};"
-            f"border:1px solid {_rgba('#ffffff', 52)};"
-            "border-radius:4px;"
-        )
-
-    def _restart_style(self):
-        accent = self._get_ac()
-        return (
-            f"color:{HOLO_MUTED};"
-            f"font:700 10px '{MONO_FONT}';"
-            f"border:1px solid {_rgba(accent, 36)};"
-            "border-radius:7px;"
-            "padding:3px 7px;"
-            f"background:{_rgba('#020617', 116)};"
-        )
-
-    def _make_tip_button(self, tip, color):
-        is_warn = "[!]" in tip or "warning:" in str(tip).lower()
-        qb = QPushButton("!" if is_warn else "?")
-        qb.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        qb.setFixedSize(24, 24); qb.setCursor(Qt.CursorShape.PointingHandCursor); qb.setToolTip(tip)
-        bc = HOLO_PINK if is_warn else HOLO_MUTED
-        hover = HOLO_TEXT
-        accent = self._get_ac()
-        qb.setStyleSheet(
-            f"QPushButton{{background:{_rgba('#020617', 120)};color:{bc};border:1px solid {_rgba(accent, 36)};border-radius:12px;font:700 8pt '{UI_FONT}';}}"
-            f"QPushButton:hover{{color:{hover};border-color:{accent};background:{_rgba(accent, 18)};}}"
-        )
-        return qb
 
     def _row_style(self, active=False):
         accent = self._get_ac()
-        bg = _rgba("#020617", 184)
-        edge = _rgba(accent, 92 if active else 34)
-        hover_bg = _rgba(accent, 18 if active else 12)
-        hover_edge = _rgba(accent, 128 if active else 78)
-        glow = _rgba(accent, 20 if active else 0)
+        edge = T.rgba(accent, 78 if active else 22)
+        bg = T.rgba("#01040f", 168 if not active else 120)
+        hover_edge = T.rgba(accent, 110 if active else 60)
+        hover_bg = T.rgba(accent, 20 if active else 12)
         return (
             "QFrame#HologramTweakRow{"
             f"background:{bg};"
             f"border:1px solid {edge};"
-            "border-radius:11px;"
+            f"border-radius:{T.R_ROW}px;"
             "}"
             "QFrame#HologramTweakRow:hover{"
             f"background:{hover_bg};"
             f"border-color:{hover_edge};"
             "}"
-            f"QFrame#HologramTweakRow[active=\"true\"]{{background:{glow};}}"
         )
 
     def _apply_row_visual(self, row):
         if not row:
             return
         active = bool(row["toggle"].isChecked())
-        row["row"].setProperty("active", "true" if active else "false")
         row["row"].setStyleSheet(self._row_style(active))
+        name_color = T.TEXT if active else T.TEXT
+        row["name"].setStyleSheet(T.label_qss(13.5, name_color, 700))
+
+    def _make_tip_button(self, tip, color=None):
+        is_warn = "[!]" in str(tip) or "warning:" in str(tip).lower()
+        qb = QPushButton("!" if is_warn else "?")
+        qb.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        qb.setFixedSize(22, 22)
+        qb.setCursor(Qt.CursorShape.PointingHandCursor)
+        qb.setToolTip(tip)
+        accent = self._get_ac()
+        bc = T.ERR if is_warn else T.TEXT_DIM
+        qb.setStyleSheet(
+            "QPushButton{"
+            f"background:{T.rgba('#01040f', 120)};color:{bc};"
+            f"border:1px solid {T.rgba(accent, 30)};border-radius:11px;"
+            f"font:700 9px '{T.UI_FONT}';"
+            "}"
+            "QPushButton:hover{"
+            f"color:{T.TEXT};border-color:{accent};background:{T.rgba(accent, 18)};"
+            "}"
+        )
+        return qb
 
     def _build_entries(self):
         self._clear_rows()
@@ -3956,42 +4183,40 @@ class TweakPage(QWidget):
         selected = load_selected_tweaks()
         entries = list(self._provider())
         self._entries = entries
-        for i, entry in enumerate(entries):
-            row = QFrame(); row.setObjectName("HologramTweakRow"); row.setFixedHeight(64)
-            rl = QHBoxLayout(row); rl.setContentsMargins(14,6,16,6); rl.setSpacing(14)
+        for entry in entries:
+            row = QFrame()
+            row.setObjectName("HologramTweakRow")
+            row.setFixedHeight(64)
+            rl = QHBoxLayout(row)
+            rl.setContentsMargins(14, 8, 14, 8)
+            rl.setSpacing(13)
 
-            sw = HologramToggle(); sw.set_accent(self._get_ac()); sw.setChecked(entry["id"] in selected); rl.addWidget(sw)
-            row.setProperty("active", "true" if sw.isChecked() else "false")
-            row.setStyleSheet(self._row_style(sw.isChecked()))
+            sw = HologramToggle()
+            sw.set_accent(self._get_ac())
+            sw.setChecked(entry["id"] in selected)
+            rl.addWidget(sw, 0, Qt.AlignmentFlag.AlignVCenter)
 
-            name_lbl = FitLabel(entry["name"], color=HOLO_TEXT, size=13)
-            desc_lbl = QLabel(f"{str(entry.get('category', '')).lower()} / {str(entry.get('desc', '')).lower()}")
-            desc_lbl.setWordWrap(True)
-            desc_lbl.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
-            desc_lbl.setMinimumHeight(22)
-            desc_lbl.setStyleSheet(
-                f"color:{HOLO_MUTED};font:500 12px '{MONO_FONT}';border:none;background:transparent;"
-            )
             text_col = QVBoxLayout()
-            text_col.setContentsMargins(0,0,0,0)
-            text_col.setSpacing(2)
+            text_col.setContentsMargins(0, 0, 0, 0)
+            text_col.setSpacing(3)
+            name_lbl = QLabel(entry["name"])
+            name_lbl.setStyleSheet(T.label_qss(13.5, T.TEXT, 700))
+            desc_lbl = QLabel(_human(entry.get("desc", "")))
+            desc_lbl.setStyleSheet(T.label_qss(T.T_SMALL, T.TEXT_MUTED, 500))
+            desc_lbl.setWordWrap(False)
             text_col.addWidget(name_lbl)
             text_col.addWidget(desc_lbl)
             rl.addLayout(text_col, 1)
 
-            status_lbl = QLabel("")
-            status_lbl.setFixedSize(8, 8)
-            status_lbl.setToolTip("Unknown")
-            status_lbl.setStyleSheet(self._status_style("#4b5563"))
-
             restart_lbl = None
             if entry.get("restart"):
-                restart_lbl = QLabel(str(entry["restart"]).lower())
-                restart_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                restart_lbl.setToolTip(entry["restart"])
-                restart_lbl.setStyleSheet(self._restart_style())
+                restart_lbl = T.Pill(str(entry["restart"]).upper(), "warn", self._get_ac())
+                restart_lbl.setToolTip(_human(entry["restart"]))
                 rl.addWidget(restart_lbl, 0, Qt.AlignmentFlag.AlignVCenter)
 
+            status_lbl = T.Pill("CHECKING", "muted", self._get_ac())
+            status_lbl.setMinimumWidth(96)
+            status_lbl.setToolTip("Status unknown")
             rl.addWidget(status_lbl, 0, Qt.AlignmentFlag.AlignVCenter)
 
             sw.clicked.connect(lambda _=False, key=entry["id"], toggle=sw: self._on_toggle(key, toggle.isChecked()))
@@ -4006,9 +4231,12 @@ class TweakPage(QWidget):
                 "desc": desc_lbl,
             })
             self._sw.append(sw)
+        self._lst.insertWidget(0, self._empty)
+        self._lst.addStretch(1)
         self._apply_filters()
         self._update_apply_info()
 
+    # -- selection / filtering -------------------------------------------
     def _set_all(self, enabled):
         changed = set(load_selected_tweaks())
         for row in self._rows:
@@ -4041,21 +4269,16 @@ class TweakPage(QWidget):
             row["row"].setVisible(visible)
             shown += 1 if visible else 0
         total = len(self._rows)
-        self._section_lbl.setText(
-            f"{self._section_caption().lower()} / {shown} of {total} visible" if query
-            else f"{self._section_caption().lower()} / {total} tweaks"
-        )
-        self._count_lbl.setText(f"{shown}/{total}" if query else f"{total} tweaks")
+        self._empty.setVisible(shown == 0)
+        self._header.set_badge(f"{shown} of {total}" if query else f"{total} tweaks")
 
     def _update_apply_info(self):
         selected = len(self._selected_entries())
         total = max(1, len(self._rows))
-        self._stat.setText(f"{selected} selected")
-        self._stat.setStyleSheet(
-            f"color:{HOLO_MUTED};font:500 11px '{MONO_FONT}';border:none;background:transparent;"
-        )
+        self._stat.setText(f"{selected} of {total} staged in {self._title}")
         self._prog.setValue(int((selected / total) * 100))
 
+    # -- lifecycle --------------------------------------------------------
     def activate(self):
         self._status_active = True
         if not self._status_poll.isActive():
@@ -4070,8 +4293,8 @@ class TweakPage(QWidget):
     def _selected_entries(self):
         return [row["entry"] for row in self._rows if row["toggle"].isChecked()]
 
+    # -- status -----------------------------------------------------------
     def _start_status_worker(self):
-
         if not self._status_active:
             return
         if self._status_worker and self._status_worker.isRunning():
@@ -4085,102 +4308,99 @@ class TweakPage(QWidget):
 
     def _apply_statuses(self, results):
         for row, (text, color) in zip(self._rows, results):
-            row["status"].setToolTip(text)
-            row["status"].setStyleSheet(self._status_style(color))
+            tone = _STATUS_TONE.get(str(text).lower(), "muted")
+            row["status"].set_value(str(text).upper(), tone, self._get_ac())
+            row["status"].setToolTip(_human(text))
 
     def _refresh_statuses(self):
         self._start_status_worker()
 
-
+    # -- apply ------------------------------------------------------------
     def _apply(self):
         sel = self._selected_entries()
-        if not sel: return
+        if not sel:
+            return
         if not self._plan_active:
-            self._stat.setText("redeem a key to unlock tweaks.")
-            self._stat.setStyleSheet(
-                f"color:{HOLO_MUTED};font:500 11px '{MONO_FONT}';border:none;background:transparent;"
-            )
+            self._stat.setText("An active plan is required to apply tweaks.")
             return
         if not has_restore_point():
             dlg = RestoreWarnDialog(self._get_ac(), self)
-            dlg.confirmed.connect(self._run); dlg.go_restore.connect(self._go_restore)
+            dlg.confirmed.connect(self._run)
+            dlg.go_restore.connect(self._go_restore)
             dlg.show_centered(self)
-        else: self._run()
+        else:
+            self._run()
 
     def _go_restore(self):
         p = self.parent()
-        while p and not isinstance(p, Dashboard): p = p.parent()
-        if p: p._sidebar._select("restore")
+        while p and not isinstance(p, Dashboard):
+            p = p.parent()
+        if p:
+            p._sidebar._select("restore")
 
     def _run(self):
         sel = self._selected_entries()
-        if not sel: return
-        if not self._plan_active:
-            self._stat.setText("no active plan.")
+        if not sel:
             return
-        ac = self._get_ac()
-        self._abtn.setEnabled(False); self._abtn.setText("working...")
-        self._prog.setVisible(True); self._prog.setValue(0)
-        self._prog.setStyleSheet(hologram_progress_style(self._get_ac()))
+        if not self._plan_active:
+            self._stat.setText("No active plan.")
+            return
+        self._abtn.setEnabled(False)
+        self._abtn.setText("Working…")
+        self._prog.setVisible(True)
+        self._prog.setValue(0)
         self._worker = TweakWorker(sel)
-        self._worker.progress.connect(lambda i,n,nm: (self._prog.setValue(int(i/n*100)), self._stat.setText(str(nm).lower())))
-        self._worker.detail.connect(lambda txt: self._stat.setText(str(txt).lower()))
-        self._worker.done.connect(self._done); self._worker.start()
+        self._worker.progress.connect(
+            lambda i, n, nm: (self._prog.setValue(int(i / max(1, n) * 100)), self._stat.setText(_human(nm)))
+        )
+        self._worker.detail.connect(lambda txt: self._stat.setText(_human(txt)))
+        self._worker.done.connect(self._done)
+        self._worker.start()
 
     def _done(self):
         hints = {entry.get("restart", "") for entry in self._selected_entries() if entry.get("restart")}
         msg = "Done."
         if "restart" in hints:
-            msg = "Done. Restart your PC."
+            msg = "Done. Restart your PC to finish applying."
         elif "sign out" in hints:
             msg = "Done. Sign out to fully apply."
         elif "relaunch game" in hints or "relaunch app" in hints:
             msg = "Done. Restart the game or app."
-        self._prog.setValue(100); self._stat.setText(msg)
-        self._stat.setStyleSheet(
-            f"color:{HOLO_MUTED};font:500 11px '{MONO_FONT}';border:none;background:transparent;"
-        )
-        self._abtn.setEnabled(True); self._abtn.setText("apply selected")
+        self._prog.setValue(100)
+        self._stat.setText(msg)
+        self._abtn.setEnabled(True)
+        self._abtn.setText("Apply selected")
         self._refresh_statuses()
         self.tweaks_applied.emit()
         self.catalog_changed.emit()
-        QTimer.singleShot(2000, self._update_apply_info)
+        QTimer.singleShot(2200, self._update_apply_info)
 
+    # -- theming ----------------------------------------------------------
     def update_accent(self, color):
-        self._hdr.setStyleSheet("QFrame{background:transparent;border:none;}")
-        self._section_lbl.setStyleSheet(
-            f"color:{HOLO_MUTED};font:500 11px '{MONO_FONT}';border:none;background:transparent;"
-        )
-        self._cat_lbl.setStyleSheet(
-            f"color:{HOLO_TEXT};font-family:'{UI_FONT}';font-size:25px;font-weight:300;border:none;background:transparent;"
-        )
-        self._count_lbl.setStyleSheet(hologram_badge_style(color))
-        self._search.setStyleSheet(hologram_input_style(color))
-        self._sc.setStyleSheet(f"QScrollArea{{border:none;background:transparent;}}"
-                         f"QScrollBar:vertical{{background:transparent;width:7px;border:none;margin:6px 0 6px 0;}}"
-                         f"QScrollBar::handle:vertical{{background:{_rgba(color, 62)};border:1px solid {_rgba(color, 82)};border-radius:3px;min-height:26px;}}"
-                         f"QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical{{height:0;}}")
-        for btn_name in ["_all_btn", "_none_btn", "_status_btn"]:
-            getattr(self, btn_name).setStyleSheet(hologram_button_style(False, color))
-        self._abtn.setStyleSheet(hologram_button_style(True, color))
-        self._prog.setStyleSheet(hologram_progress_style(color))
-        for idx, row in enumerate(self._rows):
+        self._header.set_accent(color)
+        self._search.setStyleSheet(T.input_qss(color))
+        self._sc.setStyleSheet(T.scroll_area_qss(color, 8))
+        for btn in (self._all_btn, self._none_btn, self._status_btn):
+            btn.setStyleSheet(T.button_qss(False, color))
+        self._abtn.setStyleSheet(T.button_qss(True, color))
+        self._prog.setStyleSheet(T.progress_qss(color))
+        self._empty.set_accent(color)
+        for row in self._rows:
             row["toggle"].set_accent(color)
             self._apply_row_visual(row)
+            if row["restart"] is not None:
+                row["restart"].set_accent(color)
+            row["status"].set_accent(color)
 
     def set_plan_active(self, active):
         self._plan_active = bool(active)
         self._abtn.setEnabled(bool(active))
         if not active:
-            self._abtn.setText("locked")
-            self._stat.setText("redeem a key to unlock this page.")
-            self._stat.setStyleSheet(
-                f"color:{HOLO_MUTED};font:500 11px '{MONO_FONT}';border:none;background:transparent;"
-            )
+            self._abtn.setText("Locked")
+            self._stat.setText("An active plan is required on this page.")
         else:
-            self._abtn.setText("apply selected")
+            self._abtn.setText("Apply selected")
             self._update_apply_info()
-
 class MiniStat(QFrame):
     action_clicked = pyqtSignal()
 
@@ -5297,64 +5517,95 @@ class HomePage(QWidget):
         self._cpu_s.update_accent(color)
         self._ram_s.update_accent(color)
         self._gpu_s.update_accent(color)
-        self._score_w.update_accent(color)
-
 class ProfilesPage(QWidget):
     selection_changed = pyqtSignal()
 
     def __init__(self, get_ac, parent=None):
-        super().__init__(parent); self._get_ac = get_ac; self._worker = None; self._plan_active = False
+        super().__init__(parent)
+        self._get_ac = get_ac
+        self._worker = None
+        self._plan_active = False
         self._cards = []
+        ac = self._get_ac()
         self.setStyleSheet("background:transparent;border:none;")
-        root = QVBoxLayout(self); root.setContentsMargins(28,28,28,0); root.setSpacing(12)
-        self._title = QLabel("Presets")
-        self._title.setStyleSheet(
-            f"color:{HOLO_TEXT};font-family:'{UI_FONT}';font-size:25px;font-weight:300;border:none;background:transparent;"
+        root = QVBoxLayout(self)
+        root.setContentsMargins(4, 4, 8, 0)
+        root.setSpacing(14)
+
+        self._header = T.PageHeader(
+            "REUSABLE LOADOUTS",
+            "Presets",
+            "Load a built-in pack, or save your current selection and re-apply it per game or workflow.",
+            ac,
         )
-        self._summary = QLabel("")
-        self._summary.setStyleSheet(f"color:{HOLO_MUTED};font:500 11px '{MONO_FONT}';border:none;background:transparent;")
-        root.addWidget(self._title)
-        root.addWidget(self._summary)
+        root.addWidget(self._header)
 
-        top = QFrame(); self._hero_card = top; top.setStyleSheet(hologram_panel_style(20, self._get_ac()))
-        tl = QVBoxLayout(top); tl.setContentsMargins(20,18,20,18); tl.setSpacing(12)
-        cap = QLabel("PRESET LIBRARY")
-        cap.setStyleSheet(hologram_plain_label(11, self._get_ac(), 900, 2.0))
-        tl.addWidget(cap)
-        hint = QLabel("Load built-in packs or save your own reusable tweak selection.")
-        hint.setWordWrap(True)
-        hint.setStyleSheet(f"color:{HOLO_MUTED};font:500 12px '{MONO_FONT}';border:none;background:transparent;")
-        tl.addWidget(hint)
-        row = QHBoxLayout(); row.setSpacing(8)
-        self._name = QLineEdit(); self._name.setPlaceholderText("Profile name"); self._name.setFixedHeight(38)
-        self._name.setStyleSheet(hologram_input_style(self._get_ac()))
-        self._save_btn = QPushButton("Save Selection"); self._save_btn.setFixedHeight(38); self._save_btn.setStyleSheet(hologram_button_style(True, self._get_ac())); self._save_btn.clicked.connect(self._save_current)
-        row.addWidget(self._name, 1); row.addWidget(self._save_btn)
-        tl.addLayout(row)
-        root.addWidget(top)
+        # save-current card
+        save_card = T.Card(ac, T.R_CARD)
+        self._save_card = save_card
+        sl = QVBoxLayout(save_card)
+        sl.setContentsMargins(18, 16, 18, 16)
+        sl.setSpacing(10)
+        cap = T.SectionCaption("SAVE CURRENT SELECTION", ac)
+        self._save_cap = cap
+        sl.addWidget(cap)
+        row = QHBoxLayout()
+        row.setSpacing(8)
+        self._name = QLineEdit()
+        self._name.setPlaceholderText("Name this loadout, e.g. “Valorant comp”")
+        self._name.setFixedHeight(38)
+        self._name.setStyleSheet(T.input_qss(ac))
+        self._save_btn = T.make_button("Save selection", True, ac, "layers", height=38)
+        self._save_btn.clicked.connect(self._save_current)
+        row.addWidget(self._name, 1)
+        row.addWidget(self._save_btn)
+        sl.addLayout(row)
+        self._save_hint = QLabel("")
+        self._save_hint.setStyleSheet(T.label_qss(T.T_SMALL, T.TEXT_MUTED, 500))
+        sl.addWidget(self._save_hint)
+        root.addWidget(save_card)
 
-        self._scroll = SmoothScrollArea(); self._scroll.setWidgetResizable(True); self._scroll.setFrameShape(QFrame.Shape.NoFrame)
-        self._scroll.setStyleSheet(f"QScrollArea{{border:none;background:transparent;}}"
-                         f"QScrollBar:vertical{{background:transparent;width:7px;border:none;margin:6px 0 6px 0;}}"
-                         f"QScrollBar::handle:vertical{{background:{_rgba(self._get_ac(), 62)};border:1px solid {_rgba(self._get_ac(), 82)};border-radius:3px;min-height:26px;}}"
-                         f"QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical{{height:0;}}")
-        holder = QWidget(); holder.setStyleSheet("background:transparent;border:none;")
-        self._list = QVBoxLayout(holder); self._list.setContentsMargins(0,0,4,0); self._list.setSpacing(8)
+        self._scroll = SmoothScrollArea()
+        self._scroll.setWidgetResizable(True)
+        self._scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        holder = QWidget()
+        holder.setStyleSheet("background:transparent;border:none;")
+        self._list = QVBoxLayout(holder)
+        self._list.setContentsMargins(2, 2, 6, 12)
+        self._list.setSpacing(10)
         self._scroll.setWidget(holder)
         root.addWidget(self._scroll, 1)
 
-        self._prog = _prog_bar(self._get_ac()); self._prog.setVisible(False)
-        self._prog.setStyleSheet(hologram_progress_style(self._get_ac()))
-        self._stat = QLabel(""); self._stat.setStyleSheet(f"color:{HOLO_MUTED};font:500 11px '{MONO_FONT}';border:none;background:transparent;")
-        root.addWidget(self._prog); root.addWidget(self._stat)
+        foot = QWidget()
+        foot.setFixedHeight(34)
+        foot.setStyleSheet("background:transparent;border:none;")
+        fl = QHBoxLayout(foot)
+        fl.setContentsMargins(2, 0, 2, 0)
+        self._prog = QProgressBar()
+        self._prog.setFixedWidth(160)
+        self._prog.setFixedHeight(6)
+        self._prog.setTextVisible(False)
+        self._prog.setRange(0, 100)
+        self._prog.setVisible(False)
+        self._prog.setStyleSheet(T.progress_qss(ac))
+        self._stat = QLabel("")
+        self._stat.setStyleSheet(T.label_qss(T.T_SMALL, T.TEXT_MUTED, 600))
+        fl.addWidget(self._stat, 1)
+        fl.addWidget(self._prog, 0, Qt.AlignmentFlag.AlignVCenter)
+        root.addWidget(foot)
         self._refresh()
 
+    # -- helpers ----------------------------------------------------------
     def _clear_rows(self):
         while self._list.count():
             item = self._list.takeAt(0)
             widget = item.widget()
-            if widget:
+            if widget is not None:
+                widget.setParent(None)
                 widget.deleteLater()
+        self._cards = []
 
     def _profile_entries(self, name):
         profiles = load_profiles()
@@ -5362,10 +5613,10 @@ class ProfilesPage(QWidget):
         tweak_ids = set(info.get("tweaks", []))
         return [entry for entry in all_tweak_entries() if entry["id"] in tweak_ids]
 
+    # -- actions ----------------------------------------------------------
     def _save_current(self):
         ok, msg = save_profile(self._name.text(), load_selected_tweaks())
-        self._stat.setText(msg)
-        self._stat.setStyleSheet(f"color:{MAIN if ok else MID};font:600 9pt '{UI_FONT}';")
+        self._stat.setText(_human(msg))
         if ok:
             append_activity("profile", "Saved profile", msg, "ok")
             self._name.clear()
@@ -5375,41 +5626,36 @@ class ProfilesPage(QWidget):
         entries = self._profile_entries(name)
         set_selected_tweaks([entry["id"] for entry in entries])
         append_activity("profile", "Loaded profile", name, "ok")
-        self._stat.setText(f"Loaded profile '{name}'.")
-        self._stat.setStyleSheet(f"color:{MAIN};font:600 9pt '{UI_FONT}';")
+        self._stat.setText(f"Loaded “{name}” into the current selection.")
         self.selection_changed.emit()
         self._refresh()
 
     def _load_builtin_preset(self, preset_id):
         if not self._plan_active:
-            self._stat.setText("Redeem a key to unlock preset packs.")
-            self._stat.setStyleSheet(f"color:{MID};font:600 9pt '{UI_FONT}';")
+            self._stat.setText("An active plan is required to load preset packs.")
             return
         ok, msg, preset = load_builtin_preset(preset_id)
-        self._stat.setText(msg)
-        self._stat.setStyleSheet(f"color:{MAIN if ok else MID};font:600 9pt '{UI_FONT}';")
+        self._stat.setText(_human(msg))
         if not ok or not preset:
             return
-        append_activity("preset", "Loaded preset", preset["title"], "ok", extra={"preset_id": preset["id"], "count": preset["count"]})
+        append_activity("preset", "Loaded preset", preset["title"], "ok",
+                        extra={"preset_id": preset["id"], "count": preset["count"]})
         self.selection_changed.emit()
         self._refresh()
 
     def _delete_profile(self, name):
         delete_profile(name)
         append_activity("profile", "Deleted profile", name, "ok")
-        self._stat.setText(f"Deleted profile '{name}'.")
-        self._stat.setStyleSheet(f"color:{MID};font:600 9pt '{UI_FONT}';")
+        self._stat.setText(f"Deleted “{name}”.")
         self._refresh()
 
     def _apply_profile(self, name):
         if not self._plan_active:
-            self._stat.setText("Redeem a key to unlock tweaks.")
-            self._stat.setStyleSheet(f"color:{MAIN};font:600 9pt '{UI_FONT}';")
+            self._stat.setText("An active plan is required to apply tweaks.")
             return
         entries = self._profile_entries(name)
         if not entries:
             self._stat.setText("This profile has no valid tweaks.")
-            self._stat.setStyleSheet(f"color:{MID};font:600 9pt '{UI_FONT}';")
             return
         if not has_restore_point():
             dlg = RestoreWarnDialog(self._get_ac(), self)
@@ -5421,149 +5667,145 @@ class ProfilesPage(QWidget):
 
     def _go_restore(self):
         p = self.parent()
-        while p and not isinstance(p, Dashboard): p = p.parent()
-        if p: p._sidebar._select("restore")
+        while p and not isinstance(p, Dashboard):
+            p = p.parent()
+        if p:
+            p._sidebar._select("restore")
 
     def _run_entries(self, name, entries):
         if not self._plan_active:
-            self._stat.setText("Redeem a key to unlock tweaks.")
-            self._stat.setStyleSheet(f"color:{MAIN};font:600 9pt '{UI_FONT}';")
+            self._stat.setText("An active plan is required to apply tweaks.")
             return
-        self._prog.setVisible(True); self._prog.setValue(0)
+        self._prog.setVisible(True)
+        self._prog.setValue(0)
         self._worker = TweakWorker(entries)
-        self._worker.progress.connect(lambda i, n, nm: (self._prog.setValue(int(i / max(1, n) * 100)), self._stat.setText(nm)))
-        self._worker.detail.connect(lambda txt: self._stat.setText(txt))
+        self._worker.progress.connect(
+            lambda i, n, nm: (self._prog.setValue(int(i / max(1, n) * 100)), self._stat.setText(_human(nm)))
+        )
+        self._worker.detail.connect(lambda txt: self._stat.setText(_human(txt)))
         self._worker.done.connect(lambda: self._finish_run(name))
         self._worker.start()
 
     def _finish_run(self, name):
         append_activity("profile", "Applied profile", name, "ok")
         self._prog.setValue(100)
-        self._stat.setText(f"Applied profile '{name}'.")
-        self._stat.setStyleSheet(f"color:{MAIN};font:600 9pt '{UI_FONT}';")
+        self._stat.setText(f"Applied “{name}”.")
         QTimer.singleShot(4000, lambda: self._prog.setVisible(False))
 
-    def _refresh_legacy(self):
+    # -- build ------------------------------------------------------------
+    def _refresh(self):
+        ac = self._get_ac()
         self._clear_rows()
         profiles = load_profiles()
-        self._summary.setText(f"{len(load_selected_tweaks())} selected tweaks / {len(profiles)} saved profiles")
+        presets = builtin_presets()
+        selected = load_selected_tweaks()
+        self._header.set_badge(f"{len(selected)} staged")
+        self._save_hint.setText(
+            f"{len(selected)} tweak{'s' if len(selected) != 1 else ''} currently selected — "
+            "saving stores them as a named loadout on this PC."
+        )
+
+        cap = T.SectionCaption("BUILT-IN PRESET PACKS", ac)
+        self._list.addWidget(cap)
+        grid = QGridLayout()
+        grid.setContentsMargins(0, 0, 0, 0)
+        grid.setHorizontalSpacing(12)
+        grid.setVerticalSpacing(12)
+        for i, preset in enumerate(presets):
+            card = T.Card(ac, T.R_CARD)
+            cl = QVBoxLayout(card)
+            cl.setContentsMargins(16, 14, 16, 14)
+            cl.setSpacing(8)
+            head = QHBoxLayout()
+            head.setSpacing(8)
+            name = QLabel(preset["title"])
+            name.setStyleSheet(T.label_qss(14, T.TEXT, 700))
+            head.addWidget(name)
+            head.addStretch(1)
+            count = T.Pill(f"{preset['count']} TWEAKS", "accent", ac)
+            head.addWidget(count, 0, Qt.AlignmentFlag.AlignVCenter)
+            cl.addLayout(head)
+            desc = QLabel(_human(preset["desc"]))
+            desc.setWordWrap(True)
+            desc.setStyleSheet(T.label_qss(T.T_SMALL, T.TEXT_MUTED, 500))
+            cl.addWidget(desc)
+            cl.addStretch(1)
+            btn = T.make_button("Load pack", False, ac, "download", height=32)
+            btn.setEnabled(self._plan_active)
+            btn.setToolTip("" if self._plan_active else "Active plan required.")
+            btn.clicked.connect(lambda _=False, pid=preset["id"]: self._load_builtin_preset(pid))
+            cl.addWidget(btn, 0, Qt.AlignmentFlag.AlignLeft)
+            card.setMinimumHeight(132)
+            grid.addWidget(card, i // 2, i % 2)
+            self._cards.append(card)
+        wrap = QWidget()
+        wrap.setStyleSheet("background:transparent;border:none;")
+        wl = QVBoxLayout(wrap)
+        wl.setContentsMargins(0, 0, 0, 0)
+        wl.addLayout(grid)
+        self._list.addWidget(wrap)
+        self._list.addSpacing(8)
+
+        cap2 = T.SectionCaption("SAVED LOADOUTS", ac)
+        self._list.addWidget(cap2)
         if not profiles:
-            self._list.addWidget(_lbl("No profiles saved yet.", MID, size=11))
-            self._list.addStretch()
+            empty = T.EmptyState(
+                "layers",
+                "No saved loadouts yet",
+                "Stage tweaks anywhere in the app, then save the selection above to reuse it later.",
+                ac,
+            )
+            self._list.addWidget(empty)
+            self._cards.append(empty)
+            self._list.addStretch(1)
             return
         for name, info in sorted(profiles.items()):
-            row = QFrame(); row.setStyleSheet(replica_card_style(REPLICA["line_soft"], radius=12, alt=True))
-            rl = QHBoxLayout(row); rl.setContentsMargins(12,10,12,10); rl.setSpacing(8)
-            title = QVBoxLayout(); title.setContentsMargins(0,0,0,0); title.setSpacing(4)
-            title.addWidget(_lbl(name, MAIN, bold=True, size=11))
-            title.addWidget(_lbl(f"{len(info.get('tweaks', []))} tweaks", MID, size=10))
-            rl.addLayout(title, 1)
-            for label, fn, style in [
-                ("load", lambda _=False, n=name: self._load_profile(n), _ghost(self._get_ac())),
-                ("apply", lambda _=False, n=name: self._apply_profile(n), _solid(self._get_ac())),
-                ("delete", lambda _=False, n=name: self._delete_profile(n), _danger()),
+            row = T.Card(ac, T.R_ROW)
+            rl = QHBoxLayout(row)
+            rl.setContentsMargins(14, 10, 14, 10)
+            rl.setSpacing(10)
+            tl = QVBoxLayout()
+            tl.setContentsMargins(0, 0, 0, 0)
+            tl.setSpacing(2)
+            name_lbl = QLabel(name)
+            name_lbl.setStyleSheet(T.label_qss(13.5, T.TEXT, 700))
+            count_lbl = QLabel(f"{len(info.get('tweaks', []))} tweaks saved")
+            count_lbl.setStyleSheet(T.label_qss(T.T_SMALL, T.TEXT_MUTED, 500))
+            tl.addWidget(name_lbl)
+            tl.addWidget(count_lbl)
+            rl.addLayout(tl, 1)
+            for label, fn, primary, kind in [
+                ("Load", lambda _=False, n=name: self._load_profile(n), False, "download"),
+                ("Apply", lambda _=False, n=name: self._apply_profile(n), True, "bolt"),
+                ("Delete", lambda _=False, n=name: self._delete_profile(n), False, "trash"),
             ]:
-                btn = QPushButton(label); btn.setFixedHeight(30); btn.setCursor(Qt.CursorShape.PointingHandCursor); btn.setStyleSheet(style); btn.clicked.connect(fn)
+                btn = T.make_button(label, primary, ac, kind, height=32)
+                if label == "Delete":
+                    btn.setStyleSheet(T.button_qss(False, ac, danger=True))
+                btn.clicked.connect(fn)
                 rl.addWidget(btn)
             self._list.addWidget(row)
-        self._list.addStretch()
+            self._cards.append(row)
+        self._list.addStretch(1)
 
     def activate(self):
         self._refresh()
 
-    def _refresh(self):
-        self._clear_rows()
-        self._cards = []
-        profiles = load_profiles()
-        presets = builtin_presets()
-        self._summary.setText(f"{len(load_selected_tweaks())} selected tweaks | {len(profiles)} saved profiles | {len(presets)} preset packs")
-
-        preset_cap = QLabel("Preset Packs")
-        preset_cap.setStyleSheet(hologram_plain_label(11, self._get_ac(), 900, 2.0))
-        self._list.addWidget(preset_cap)
-        self._list.addSpacing(6)
-
-        for preset in presets:
-            row = QFrame(); row.setStyleSheet(hologram_panel_style(16, self._get_ac()))
-            rl = QHBoxLayout(row); rl.setContentsMargins(14,12,14,12); rl.setSpacing(10)
-            title = QVBoxLayout(); title.setContentsMargins(0,0,0,0); title.setSpacing(4)
-            name = QLabel(preset["title"])
-            name.setStyleSheet(f"color:{HOLO_TEXT};font:800 13px '{UI_FONT}';border:none;background:transparent;")
-            desc = QLabel(f"{preset['count']} tweaks | {preset['desc']}")
-            desc.setWordWrap(True)
-            desc.setStyleSheet(f"color:{HOLO_MUTED};font:500 11px '{MONO_FONT}';border:none;background:transparent;")
-            title.addWidget(name)
-            title.addWidget(desc)
-            rl.addLayout(title, 1)
-            btn = QPushButton("Load")
-            btn.setFixedHeight(32)
-            btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn.setStyleSheet(hologram_button_style(False, self._get_ac()))
-            btn.setEnabled(self._plan_active)
-            btn.setToolTip("" if self._plan_active else "Active plan required.")
-            btn.clicked.connect(lambda _=False, pid=preset["id"]: self._load_builtin_preset(pid))
-            rl.addWidget(btn)
-            self._list.addWidget(row)
-            self._cards.append(row)
-
-        self._list.addSpacing(10)
-        saved_cap = QLabel("Saved Profiles")
-        saved_cap.setStyleSheet(hologram_plain_label(11, self._get_ac(), 900, 2.0))
-        self._list.addWidget(saved_cap)
-        self._list.addSpacing(6)
-
-        if not profiles:
-            empty = QFrame(); empty.setStyleSheet(hologram_panel_style(16, self._get_ac()))
-            el = QVBoxLayout(empty); el.setContentsMargins(16,16,16,16); el.setSpacing(6)
-            title = QLabel("No profiles saved yet.")
-            title.setStyleSheet(f"color:{HOLO_TEXT};font:800 13px '{UI_FONT}';border:none;background:transparent;")
-            text = QLabel("Save a selection above to build a reusable loadout for different games or workflows.")
-            text.setWordWrap(True)
-            text.setStyleSheet(f"color:{HOLO_MUTED};font:500 11px '{MONO_FONT}';border:none;background:transparent;")
-            el.addWidget(title)
-            el.addWidget(text)
-            self._list.addWidget(empty)
-            self._cards.append(empty)
-            self._list.addStretch()
-            return
-        for name, info in sorted(profiles.items()):
-            row = QFrame(); row.setStyleSheet(hologram_panel_style(16, self._get_ac()))
-            rl = QHBoxLayout(row); rl.setContentsMargins(14,12,14,12); rl.setSpacing(10)
-            title = QVBoxLayout(); title.setContentsMargins(0,0,0,0); title.setSpacing(4)
-            name_lbl = QLabel(name)
-            name_lbl.setStyleSheet(f"color:{HOLO_TEXT};font:800 13px '{UI_FONT}';border:none;background:transparent;")
-            count_lbl = QLabel(f"{len(info.get('tweaks', []))} tweaks saved")
-            count_lbl.setStyleSheet(f"color:{HOLO_MUTED};font:500 11px '{MONO_FONT}';border:none;background:transparent;")
-            title.addWidget(name_lbl)
-            title.addWidget(count_lbl)
-            rl.addLayout(title, 1)
-            for label, fn, style in [
-                ("Load", lambda _=False, n=name: self._load_profile(n), hologram_button_style(False, self._get_ac())),
-                ("Apply", lambda _=False, n=name: self._apply_profile(n), hologram_button_style(True, self._get_ac())),
-                ("Delete", lambda _=False, n=name: self._delete_profile(n), _danger()),
-            ]:
-                btn = QPushButton(label); btn.setFixedHeight(32); btn.setCursor(Qt.CursorShape.PointingHandCursor); btn.setStyleSheet(style); btn.clicked.connect(fn)
-                rl.addWidget(btn)
-            self._list.addWidget(row)
-            self._cards.append(row)
-        self._list.addStretch()
-
     def update_accent(self, color):
-        self._hero_card.setStyleSheet(hologram_panel_style(20, color))
-        self._save_btn.setStyleSheet(hologram_button_style(True, color))
-        self._name.setStyleSheet(hologram_input_style(color))
-        self._scroll.setStyleSheet(f"QScrollArea{{border:none;background:transparent;}}"
-                         f"QScrollBar:vertical{{background:transparent;width:7px;border:none;margin:6px 0 6px 0;}}"
-                         f"QScrollBar::handle:vertical{{background:{_rgba(color, 62)};border:1px solid {_rgba(color, 82)};border-radius:3px;min-height:26px;}}"
-                         f"QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical{{height:0;}}")
-        self._prog.setStyleSheet(hologram_progress_style(color))
+        self._header.set_accent(color)
+        self._save_card.set_accent(color)
+        self._save_cap.set_accent(color)
+        self._name.setStyleSheet(T.input_qss(color))
+        self._save_btn.setStyleSheet(T.button_qss(True, color))
+        self._scroll.setStyleSheet(T.scroll_area_qss(color, 8))
+        self._prog.setStyleSheet(T.progress_qss(color))
         self._refresh()
 
     def set_plan_active(self, active):
         self._plan_active = bool(active)
         if active:
             self._stat.setText("")
-            self._stat.setStyleSheet(f"color:{MID};font:600 9pt '{UI_FONT}';")
+        self._refresh()
         self._refresh()
 
 class ActivityLogPage(QWidget):
@@ -5938,18 +6180,23 @@ class AccountPage(QWidget):
         self._redeem_worker = None
 
         root = QVBoxLayout(self)
-        root.setContentsMargins(12, 12, 12, 12)
-        root.setSpacing(12)
+        root.setContentsMargins(4, 4, 8, 0)
+        root.setSpacing(14)
+
+        self._header = T.PageHeader(
+            "LICENSE & SESSION",
+            "Account",
+            "How this copy of Hextra is licensed and what that unlocks. No server contact in offline builds.",
+            self._get_ac(),
+        )
+        root.addWidget(self._header)
 
         scroll = SmoothScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        scroll.setStyleSheet(f"QScrollArea{{background:transparent;border:none;}}"
-                             f"QScrollBar:vertical{{width:7px;border:none;background:transparent;margin:6px 0 6px 0;}}"
-                             f"QScrollBar::handle:vertical{{background:{_rgba('#dfe7f6', 60)};border:1px solid {_rgba('#ffffff', 36)};border-radius:3px;min-height:26px;}}"
-                             f"QScrollBar::handle:vertical:hover{{background:{_rgba(self._get_ac(), 98)};border-color:{_rgba(self._get_ac(), 72)};}}"
-                             f"QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical{{height:0;}}")
+        self._scroll = scroll
+        scroll.setStyleSheet(T.scroll_area_qss(self._get_ac(), 8))
         host = QWidget()
         host.setStyleSheet("background:transparent;border:none;")
         lay = QVBoxLayout(host)
@@ -6060,22 +6307,25 @@ class AccountPage(QWidget):
         self.update_accent(self._get_ac())
 
     def update_accent(self, color):
-        soft_edge = _rgba(color, 38)
-        card_edge = _rgba("#ffffff", 52)
-        shell_edge = _rgba("#ffffff", 44)
-        self._hero.setStyleSheet(replica_hero_style(color))
-        apply_glass_shadow(self._hero, color, blur=50, y=18, alpha=78)
-        self._hero_eyebrow.setStyleSheet(replica_section_caption(color))
-        self._profile.setStyleSheet(f"QFrame#accountProfileCard{{background:{CARD};border:1px solid {card_edge};border-radius:22px;}}")
-        self._licenses.setStyleSheet(f"QFrame#accountLicenseCard{{background:{CARD};border:1px solid {card_edge};border-radius:22px;}}")
-        self._redeem_shell.setStyleSheet(f"QFrame#accountRedeemShell{{background:{REPLICA['surface_alt']};border:1px solid {shell_edge};border-radius:16px;}}")
-        apply_glass_shadow(self._profile, color, blur=32, y=12, alpha=42)
-        apply_glass_shadow(self._licenses, color, blur=32, y=12, alpha=42)
-        apply_glass_shadow(self._redeem_shell, color, blur=24, y=8, alpha=28)
+        if getattr(self, "_header", None) is not None:
+            self._header.set_accent(color)
+        if getattr(self, "_scroll", None) is not None:
+            self._scroll.setStyleSheet(T.scroll_area_qss(color, 8))
+        self._hero.setStyleSheet(T.card_qss(color, 16, alpha=210))
+        self._hero_eyebrow.setStyleSheet(T.eyebrow_qss(color))
+        self._profile.setStyleSheet(T.card_qss(color, 16))
+        self._licenses.setStyleSheet(T.card_qss(color, 16))
+        self._redeem_shell.setStyleSheet(T.card_qss(color, 12, alpha=150))
         for row in (self._username_row, self._email_row, self._created_row, self._status_row, self._expires_row):
-            row.setStyleSheet(f"QFrame{{background:{REPLICA['surface_alt']};border:1px solid {REPLICA['line_soft']};border-radius:12px;}}")
-        self._redeem_input.setStyleSheet(f"QLineEdit{{background:{BG};color:{MAIN};border:1px solid {_rgba('#ffffff', 52)};border-radius:14px;padding:0 12px;font:600 10pt '{UI_FONT}';}}QLineEdit:focus{{border-color:{_rgba('#ffffff', 92)};background:{CARD};}}")
-        self._redeem_btn.setStyleSheet(_solid(color))
+            row.setStyleSheet(
+                "QFrame{"
+                f"background:{T.rgba('#01040f', 120)};"
+                f"border:1px solid {T.rgba(color, 20)};"
+                f"border-radius:{T.R_ROW}px;"
+                "}"
+            )
+        self._redeem_input.setStyleSheet(T.input_qss(color))
+        self._redeem_btn.setStyleSheet(T.button_qss(True, color))
 
     def set_session(self, auth, status=None):
         self._auth = dict(auth or {})
@@ -6617,6 +6867,117 @@ class HologramHeroTitle(QWidget):
         painter.end()
 
 
+def _tune_score_breakdown():
+    """Deterministic, honest 'tune score' derived from local state."""
+    parts = []
+    selected = set(load_selected_tweaks())
+    applied = set(load_snapshots().keys())
+    recommended = {entry["id"] for entry in recommended_tweak_entries()}
+
+    safety = 22 if has_restore_point() else 0
+    parts.append(("Restore point available", safety, 22))
+
+    if recommended:
+        staged = len(selected & recommended)
+        coverage = staged / float(len(recommended))
+    else:
+        coverage = 0.0
+    staged_pts = int(round(coverage * 38))
+    parts.append(("Recommended tweaks staged", staged_pts, 38))
+
+    applied_pts = min(28, len(applied) * 4)
+    parts.append(("Tweaks applied & reversible", applied_pts, 28))
+
+    hygiene = 12 if (selected or applied) else 0
+    parts.append(("Active tune loadout", hygiene, 12))
+
+    score = sum(p[1] for p in parts)
+    return max(0, min(100, score)), parts
+
+
+class ScoreRing(QWidget):
+    def __init__(self, accent=None, parent=None):
+        super().__init__(parent)
+        self._accent = _holo_accent(accent)
+        self._score = 0
+        self._shown = 0.0
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setFixedSize(172, 172)
+
+        self._value = QLabel("0")
+        self._value.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._value.setParent(self)
+        self._caption = QLabel("tune score")
+        self._caption.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._caption.setParent(self)
+        self._layout_overlays()
+
+        self._anim = QPropertyAnimation(self, b"shownScore", self)
+        self._anim.setDuration(650)
+        self._anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+
+    def _layout_overlays(self):
+        self._value.setStyleSheet(T.label_qss(40, T.TEXT, 800))
+        self._caption.setStyleSheet(T.label_qss(11, T.TEXT_MUTED, 600, 0.6))
+        self._value.setGeometry(0, 58, self.width(), 48)
+        self._caption.setGeometry(0, 104, self.width(), 16)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._layout_overlays()
+
+    def getShownScore(self):
+        return self._shown
+
+    def setShownScore(self, v):
+        self._shown = float(v)
+        self._value.setText(str(int(round(self._shown))))
+        self.update()
+
+    shownScore = pyqtProperty(float, getShownScore, setShownScore)
+
+    def set_score(self, score, tooltip=""):
+        self._score = int(max(0, min(100, score)))
+        if tooltip:
+            self.setToolTip(tooltip)
+        self._anim.stop()
+        self._anim.setStartValue(self._shown)
+        self._anim.setEndValue(float(self._score))
+        self._anim.start()
+
+    def set_accent(self, color):
+        self._accent = _holo_accent(color)
+        self.update()
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        side = min(self.width(), self.height())
+        rect = QRectF((self.width() - side) / 2 + 6, (self.height() - side) / 2 + 6, side - 12, side - 12)
+        ac = QColor(self._accent)
+
+        glow = QRadialGradient(QPointF(self.width() / 2, self.height() / 2), side * 0.5)
+        glow.setColorAt(0.0, QColor(ac.red(), ac.green(), ac.blue(), 30))
+        glow.setColorAt(1.0, QColor(ac.red(), ac.green(), ac.blue(), 0))
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(QBrush(glow))
+        p.drawEllipse(rect.adjusted(-10, -10, 10, 10))
+
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        p.setPen(QPen(QColor(255, 255, 255, 22), 7, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+        p.drawArc(rect, 90 * 16, 360 * 16)
+
+        frac = max(0.0, min(1.0, self._shown / 100.0))
+        if frac > 0.001:
+            grad = QLinearGradient(rect.left(), rect.top(), rect.right(), rect.bottom())
+            grad.setColorAt(0.0, ac)
+            grad.setColorAt(1.0, QColor(T.accent_secondary(ac.name())))
+            p.setPen(QPen(QBrush(grad), 7, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+            p.drawArc(rect, 90 * 16, -int(360 * 16 * frac))
+        p.end()
+
+
 class HologramOverviewPage(QWidget):
     tweaks_applied = pyqtSignal()
     open_restore = pyqtSignal()
@@ -6627,110 +6988,239 @@ class HologramOverviewPage(QWidget):
         self._plan_active = False
         self.setStyleSheet("background:transparent;border:none;")
 
-        root = QVBoxLayout(self)
-        root.setContentsMargins(0, 0, 0, 0)
-        root.setSpacing(22)
+        scroll = SmoothScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self._scroll = scroll
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 4, 0)
+        outer.setSpacing(0)
+        outer.addWidget(scroll, 1)
 
-        main_card = QFrame()
-        self._main_card = main_card
-        main_card.setStyleSheet(hologram_panel_style(30, self._get_ac()))
-        main_card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        self._main_effect = QGraphicsDropShadowEffect(main_card)
-        self._main_effect.setBlurRadius(50)
-        self._main_effect.setOffset(0, 0)
-        main_card.setGraphicsEffect(self._main_effect)
+        host = QWidget()
+        host.setStyleSheet("background:transparent;border:none;")
+        root = QVBoxLayout(host)
+        root.setContentsMargins(2, 2, 6, 18)
+        root.setSpacing(14)
 
-        self._hero_layout = QHBoxLayout(main_card)
-        hero_layout = self._hero_layout
-        hero_layout.setContentsMargins(28, 28, 28, 28)
-        hero_layout.setSpacing(16)
+        ac = self._get_ac()
 
-        hero = QWidget()
-        hero.setStyleSheet("background:transparent;border:none;")
-        hero_col = QVBoxLayout(hero)
-        hero_col.setContentsMargins(0, 0, 0, 0)
-        hero_col.setSpacing(0)
+        # --- hero ---------------------------------------------------------
+        hero = T.Card(ac, T.R_CARD, glow=True)
+        self._hero = hero
+        hl = QHBoxLayout(hero)
+        hl.setContentsMargins(24, 22, 24, 22)
+        hl.setSpacing(24)
 
-        title = HologramHeroTitle()
-        self._hero_title = title
-        self._hero_title.set_accent(self._get_ac())
-        paragraph = QLabel(
-            "A futuristic hologram UI. Strong visual identity, maybe less practical, "
-            "but it would make Hextra look unique in screenshots."
-        )
-        paragraph.setWordWrap(True)
-        paragraph.setMaximumWidth(360)
-        paragraph.setStyleSheet(
-            f"color:{HOLO_MUTED};font-family:'{UI_FONT}';font-size:15px;font-weight:500;line-height:1.45;border:none;background:transparent;"
-        )
-        self._project_btn = QPushButton("apply recommended")
-        self._project_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._project_btn.setFixedHeight(42)
-        self._project_btn.setMinimumWidth(0)
-        self._project_btn.setMaximumWidth(220)
+        left = QWidget()
+        left.setStyleSheet("background:transparent;border:none;")
+        ll = QVBoxLayout(left)
+        ll.setContentsMargins(0, 0, 0, 0)
+        ll.setSpacing(10)
+
+        eyebrow = QLabel("LIVE SYSTEM SNAPSHOT")
+        eyebrow.setStyleSheet(T.eyebrow_qss(ac))
+        self._eyebrow = eyebrow
+        ll.addWidget(eyebrow)
+
+        self._host_title = QLabel("Performance overview")
+        self._host_title.setStyleSheet(T.label_qss(T.T_DISPLAY, T.TEXT, 700))
+        ll.addWidget(self._host_title)
+
+        self._host_sub = QLabel("")
+        self._host_sub.setWordWrap(True)
+        self._host_sub.setMaximumWidth(520)
+        self._host_sub.setStyleSheet(T.label_qss(T.T_BODY, T.TEXT_MUTED, 500))
+        ll.addWidget(self._host_sub)
+
+        ll.addSpacing(6)
+        actions = QHBoxLayout()
+        actions.setSpacing(8)
+        self._project_btn = T.make_button("Apply recommended", True, ac, "bolt", height=38)
         self._project_btn.clicked.connect(self._project_recommended)
-        self._project_btn.setStyleSheet(self._project_button_style())
+        self._restore_btn = T.make_button("Create restore point", False, ac, "restore", height=38)
+        self._restore_btn.clicked.connect(lambda: self.open_restore.emit())
+        actions.addWidget(self._project_btn)
+        actions.addWidget(self._restore_btn)
+        actions.addStretch(1)
+        ll.addLayout(actions)
+        ll.addStretch(1)
+        hl.addWidget(left, 1)
 
-        hero_col.addWidget(title)
-        hero_col.addSpacing(10)
-        hero_col.addWidget(paragraph)
-        hero_col.addSpacing(16)
-        hero_col.addWidget(self._project_btn, 0, Qt.AlignmentFlag.AlignLeft)
-        hero_col.addStretch(1)
+        ring_col = QWidget()
+        ring_col.setStyleSheet("background:transparent;border:none;")
+        rl = QVBoxLayout(ring_col)
+        rl.setContentsMargins(0, 0, 0, 0)
+        rl.setSpacing(0)
+        rl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._ring = ScoreRing(ac)
+        rl.addWidget(self._ring)
+        hl.addWidget(ring_col)
+        hero.setFixedHeight(214)
+        root.addWidget(hero)
 
-        rings = QWidget()
-        self._rings = rings
-        rings.setStyleSheet("background:transparent;border:none;")
-        rings.setFixedWidth(216)
-        rings_layout = QVBoxLayout(rings)
-        rings_layout.setContentsMargins(0, 0, 0, 0)
-        rings_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._ring = HologramRing()
-        self._ring.set_accent(self._get_ac())
-        rings_layout.addWidget(self._ring)
+        # --- live stat tiles ---------------------------------------------
+        tiles = QHBoxLayout()
+        tiles.setSpacing(12)
+        self._tile_cpu = T.StatTile("CPU LOAD", "—", "sampling…", "accent", ac, "cpu")
+        self._tile_mem = T.StatTile("MEMORY", "—", "—", "accent", ac, "ram")
+        self._tile_gpu = T.StatTile("GPU LOAD", "—", "—", "accent", ac, "gpu")
+        self._tile_safety = T.StatTile("SAFETY NET", "—", "—", "ok", ac, "shield")
+        for tile in (self._tile_cpu, self._tile_mem, self._tile_gpu, self._tile_safety):
+            tile.setFixedHeight(122)
+            tiles.addWidget(tile, 1)
+        root.addLayout(tiles)
 
-        hero_layout.addWidget(hero, 1)
-        hero_layout.addWidget(rings)
+        # --- lower cards --------------------------------------------------
+        lower = QHBoxLayout()
+        lower.setSpacing(12)
 
-        bottom = QHBoxLayout()
-        bottom.setContentsMargins(0, 0, 0, 0)
-        bottom.setSpacing(18)
-        self._metric_panels = []
-        for label, value, description in [
-            ("LATENCY PACK", "Ready", "Network and input tweaks staged."),
-            ("SAFETY", "100%", "Undo snapshots prepared."),
-            ("PROFILE", "Esports", "Clean gaming preset selected."),
-        ]:
-            panel = HologramMetricPanel(label, value, description)
-            panel.update_accent(self._get_ac())
-            self._metric_panels.append(panel)
-            bottom.addWidget(panel, 1)
+        staged = T.Card(ac, T.R_CARD)
+        self._staged_card = staged
+        sl = QVBoxLayout(staged)
+        sl.setContentsMargins(20, 18, 20, 18)
+        sl.setSpacing(10)
+        cap = T.SectionCaption("STAGED LOADOUT", ac)
+        self._staged_cap = cap
+        sl.addWidget(cap)
+        self._staged_title = QLabel("0 tweaks staged")
+        self._staged_title.setStyleSheet(T.label_qss(T.T_TITLE, T.TEXT, 700))
+        sl.addWidget(self._staged_title)
+        self._staged_body = QLabel("")
+        self._staged_body.setWordWrap(True)
+        self._staged_body.setStyleSheet(T.label_qss(T.T_SMALL, T.TEXT_MUTED, 500))
+        sl.addWidget(self._staged_body)
+        self._staged_bar = QProgressBar()
+        self._staged_bar.setFixedHeight(6)
+        self._staged_bar.setTextVisible(False)
+        self._staged_bar.setRange(0, 100)
+        sl.addWidget(self._staged_bar)
+        sl.addStretch(1)
+        lower.addWidget(staged, 1)
 
-        root.addWidget(main_card, 1)
-        root.addLayout(bottom)
+        recent = T.Card(ac, T.R_CARD)
+        self._recent_card = recent
+        rcl = QVBoxLayout(recent)
+        rcl.setContentsMargins(20, 18, 20, 14)
+        rcl.setSpacing(8)
+        rcap = T.SectionCaption("RECENT ACTIVITY", ac)
+        self._recent_cap = rcap
+        rcl.addWidget(rcap)
+        self._recent_host = QVBoxLayout()
+        self._recent_host.setSpacing(6)
+        rcl.addLayout(self._recent_host)
+        rcl.addStretch(1)
+        lower.addWidget(recent, 1)
+        staged.setMinimumHeight(208)
+        recent.setMinimumHeight(208)
+        root.addLayout(lower, 1)
+
+        scroll.setWidget(host)
+
+        self._metric_timer = QTimer(self)
+        self._metric_timer.setInterval(2000)
+        self._metric_timer.timeout.connect(self._refresh_metrics)
         self.update_accent(self._get_ac())
-        QTimer.singleShot(0, self._sync_hero_geometry)
+        QTimer.singleShot(0, self.refresh_score)
 
-    def _project_button_style(self):
-        accent = _holo_accent(self._get_ac())
-        return (
-            "QPushButton{"
-            f"background:{_rgba(accent, 31)};"
-            f"color:{accent};"
-            f"border:1px solid {accent};"
-            "border-radius:13px;"
-            f"font-family:'{UI_FONT}';font-size:12px;font-weight:900;"
-            "padding:0 14px;"
-            "}"
-            "QPushButton:hover{"
-            f"background:{_rgba(accent, 44)};"
-            "}"
-            "QPushButton:disabled{"
-            f"color:{HOLO_MUTED};"
-            f"border-color:{_rgba(accent, 34)};"
-            f"background:{_rgba(accent, 10)};"
-            "}"
+    # -- data -------------------------------------------------------------
+    def _refresh_metrics(self):
+        try:
+            cpu = stable_cpu_percent()
+        except Exception:
+            cpu = 0.0
+        self._tile_cpu.set_value(f"{cpu:.0f}%", f"{psutil.cpu_count() or 0} logical cores")
+        try:
+            vm = psutil.virtual_memory()
+            used = vm.total - vm.available
+            self._tile_mem.set_value(
+                f"{used / (1024 ** 3):.1f} GB",
+                f"of {vm.total / (1024 ** 3):.0f} GB · {vm.percent:.0f}% in use",
+            )
+        except Exception:
+            self._tile_mem.set_value("n/a", "memory unavailable")
+        try:
+            gpu = gpu_percent()
+        except Exception:
+            gpu = 0.0
+        if gpu and gpu > 0:
+            self._tile_gpu.set_value(f"{gpu:.0f}%", "sampled from adapter")
+        else:
+            self._tile_gpu.set_value("idle", "no discrete sampler on this OS")
+
+    def refresh_score(self):
+        score, parts = _tune_score_breakdown()
+        tip = "\n".join(f"{name}: {got}/{cap}" for name, got, cap in parts)
+        self._ring.set_score(score, tip)
+
+        selected = load_selected_tweaks()
+        applied = load_snapshots()
+        self._staged_title.setText(
+            f"{len(selected)} tweak{'s' if len(selected) != 1 else ''} staged"
         )
+        if selected:
+            cats = {}
+            for entry in all_tweak_entries():
+                if entry["id"] in selected:
+                    cats[entry.get("category", "Other")] = cats.get(entry.get("category", "Other"), 0) + 1
+            top = sorted(cats.items(), key=lambda kv: -kv[1])[:4]
+            self._staged_body.setText(
+                "Heaviest categories: " + ", ".join(f"{c} ({n})" for c, n in top) + "."
+            )
+        else:
+            self._staged_body.setText(
+                "Nothing staged yet. Pick tweaks from any category, or load a preset from the Presets page."
+            )
+        total_recs = max(1, len(recommended_tweak_entries()))
+        self._staged_bar.setValue(int(min(100, len(selected) / float(total_recs) * 100)))
+
+        ready = has_restore_point()
+        self._tile_safety.set_value(
+            "Ready" if ready else "Missing",
+            "System restore point available" if ready else "Create one before applying tweaks",
+            tone="ok" if ready else "err",
+        )
+
+        # recent activity
+        while self._recent_host.count():
+            item = self._recent_host.takeAt(0)
+            w = item.widget()
+            if w is not None:
+                w.setParent(None)
+                w.deleteLater()
+        log = list(reversed(load_activity_log()))[:5]
+        if not log:
+            empty = QLabel("No activity recorded yet. Applied tweaks and tools will show up here.")
+            empty.setWordWrap(True)
+            empty.setStyleSheet(T.label_qss(T.T_SMALL, T.TEXT_DIM, 500))
+            self._recent_host.addWidget(empty)
+        else:
+            for item in log:
+                row = QWidget()
+                row.setStyleSheet("background:transparent;border:none;")
+                rl = QHBoxLayout(row)
+                rl.setContentsMargins(0, 0, 0, 0)
+                rl.setSpacing(10)
+                status = str(item.get("status", "info")).lower()
+                dot = QLabel()
+                dot.setFixedSize(7, 7)
+                col = T.OK if status == "ok" else (T.ERR if status == "error" else self._get_ac())
+                dot.setStyleSheet(f"background:{col};border-radius:4px;")
+                rl.addWidget(dot, 0, Qt.AlignmentFlag.AlignVCenter)
+                txt = QLabel(f"{item.get('title', 'Activity')} — {item.get('detail', '')}")
+                txt.setStyleSheet(T.label_qss(T.T_SMALL, T.TEXT_MUTED, 500))
+                txt.setWordWrap(False)
+                rl.addWidget(txt, 1)
+                try:
+                    stamp = datetime.fromtimestamp(item.get("ts", time.time())).strftime("%b %d, %H:%M")
+                except Exception:
+                    stamp = ""
+                when = QLabel(stamp)
+                when.setStyleSheet(T.label_qss(10.5, T.TEXT_DIM, 500, mono=True))
+                rl.addWidget(when, 0, Qt.AlignmentFlag.AlignVCenter)
+                self._recent_host.addWidget(row)
 
     def _project_recommended(self):
         if not self._plan_active:
@@ -6739,28 +7229,58 @@ class HologramOverviewPage(QWidget):
         set_selected_tweaks([entry["id"] for entry in recommended_tweak_entries()])
         self._project_btn.setText("Projected")
         self.tweaks_applied.emit()
-        QTimer.singleShot(1400, lambda: self._project_btn.setText("apply recommended"))
-
-    def refresh_score(self):
-        self._ring.set_score(86)
+        self.refresh_score()
+        QTimer.singleShot(1400, lambda: self._project_btn.setText("Apply recommended"))
 
     def activate(self):
         self.refresh_score()
+        self._refresh_metrics()
+        if not self._metric_timer.isActive():
+            self._metric_timer.start()
 
     def deactivate(self):
-        pass
+        self._metric_timer.stop()
 
     def update_accent(self, color):
         color = _holo_accent(color)
-        self._main_card.setStyleSheet(hologram_panel_style(30, color))
-        ac = QColor(color)
-        self._main_effect.setColor(QColor(ac.red(), ac.green(), ac.blue(), 20))
-        self._hero_title.set_accent(color)
+        self._hero.set_accent(color)
+        self._staged_card.set_accent(color)
+        self._recent_card.set_accent(color)
+        self._eyebrow.setStyleSheet(T.eyebrow_qss(color))
+        self._staged_cap.set_accent(color)
+        self._recent_cap.set_accent(color)
         self._ring.set_accent(color)
-        for panel in self._metric_panels:
-            panel.update_accent(color)
-        self._project_btn.setStyleSheet(self._project_button_style())
+        self._project_btn.setStyleSheet(T.button_qss(True, color))
+        self._restore_btn.setStyleSheet(T.button_qss(False, color))
+        self._staged_bar.setStyleSheet(T.progress_qss(color))
+        for tile in (self._tile_cpu, self._tile_mem, self._tile_gpu, self._tile_safety):
+            tile.set_accent(color)
+        self._scroll.setStyleSheet(T.scroll_area_qss(color, 8))
+        self._refresh_host_copy()
         self.refresh_score()
+
+    def _refresh_host_copy(self):
+        try:
+            os_name = f"Windows {platform.release()}" if os.name == "nt" else platform.system()
+        except Exception:
+            os_name = platform.system()
+        cores = 0
+        ram = ""
+        try:
+            cores = psutil.cpu_count() or 0
+            ram = f"{psutil.virtual_memory().total / (1024 ** 3):.0f} GB RAM"
+        except Exception:
+            pass
+        bits = [os_name]
+        if cores:
+            bits.append(f"{cores} threads")
+        if ram:
+            bits.append(ram)
+        bits.append(f"Hextra {VERSION}")
+        self._host_sub.setText(
+            " · ".join(bits)
+            + ". Everything below is measured live on this PC and runs fully offline."
+        )
 
     def set_plan_active(self, active):
         self._plan_active = bool(active)
@@ -6769,100 +7289,108 @@ class HologramOverviewPage(QWidget):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        self._sync_hero_geometry()
-
-    def _sync_hero_geometry(self):
-        if not hasattr(self, "_ring"):
-            return
-        width = max(0, self.width())
-        if width >= 760:
-            ring_size = 224
-            margin = 32
-            spacing = 22
-        elif width >= 620:
-            ring_size = 206
-            margin = 28
-            spacing = 18
-        elif width >= 500:
-            ring_size = 188
-            margin = 24
-            spacing = 14
-        else:
-            ring_size = 164
-            margin = 20
-            spacing = 12
-        self._ring.set_ring_size(ring_size)
-        self._rings.setFixedWidth(ring_size + 10)
-        self._hero_layout.setContentsMargins(margin, margin, margin, margin)
-        self._hero_layout.setSpacing(spacing)
-
-
 class HtmlActivityPage(QWidget):
     def __init__(self, get_ac, parent=None):
         super().__init__(parent)
         self._get_ac = get_ac
-        self.setStyleSheet(f"background:{BG};")
+        ac = self._get_ac()
+        self.setStyleSheet("background:transparent;border:none;")
         root = QVBoxLayout(self)
-        root.setContentsMargins(32, 28, 32, 28)
-        root.setSpacing(0)
-        self._title = QLabel("Activity")
-        self._title.setStyleSheet(replica_title_style())
-        self._subtitle = QLabel("log / last 30 entries")
-        self._subtitle.setStyleSheet(f"color:{MID};font:11px '{MONO_FONT}';border:none;background:transparent;")
-        root.addWidget(self._title)
-        root.addWidget(self._subtitle)
-        root.addSpacing(24)
+        root.setContentsMargins(4, 4, 8, 0)
+        root.setSpacing(14)
+
+        self._header = T.PageHeader(
+            "LOCAL HISTORY",
+            "Activity",
+            "Everything Hextra has done on this PC, newest first. Nothing leaves the machine.",
+            ac,
+        )
+        self._clear_btn = T.make_button("Clear history", False, ac, "trash", height=34)
+        self._clear_btn.clicked.connect(self._clear_log)
+        self._header.add_action(self._clear_btn)
+        root.addWidget(self._header)
 
         self._scroll = SmoothScrollArea()
         self._scroll.setWidgetResizable(True)
         self._scroll.setFrameShape(QFrame.Shape.NoFrame)
-        self._scroll.setStyleSheet(f"QScrollArea{{background:transparent;border:none;}}")
+        self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         host = QWidget()
         host.setStyleSheet("background:transparent;border:none;")
         self._list = QVBoxLayout(host)
-        self._list.setContentsMargins(0, 0, 0, 0)
-        self._list.setSpacing(0)
+        self._list.setContentsMargins(2, 2, 6, 12)
+        self._list.setSpacing(6)
+        self._empty = T.EmptyState(
+            "pulse",
+            "No activity recorded yet",
+            "Applied tweaks, loaded presets and quick tools will show up here as a local, private history.",
+            ac,
+        )
+        self._list.addWidget(self._empty)
+        self._list.addStretch(1)
         self._scroll.setWidget(host)
         root.addWidget(self._scroll, 1)
+        self._refresh()
+
+    def _clear_log(self):
+        clear_activity_log()
         self._refresh()
 
     def _clear(self):
         while self._list.count():
             item = self._list.takeAt(0)
             widget = item.widget()
-            if widget:
+            if widget is None:
+                continue
+            widget.setParent(None)
+            if widget is not self._empty:
                 widget.deleteLater()
 
     def _entry_row(self, item):
-        row = QFrame()
-        row.setStyleSheet(f"QFrame{{background:transparent;border:none;border-bottom:1px solid {LINE};}}")
+        ac = self._get_ac()
+        row = T.Card(ac, T.R_ROW)
         lay = QHBoxLayout(row)
-        lay.setContentsMargins(0, 10, 0, 10)
-        lay.setSpacing(14)
-        stamp = datetime.fromtimestamp(item.get("ts", time.time())).strftime("%H:%M:%S")
-        ts = QLabel(stamp)
-        ts.setMinimumWidth(64)
-        ts.setStyleSheet(f"color:{DIM};font:10px '{MONO_FONT}';border:none;")
-        lay.addWidget(ts)
-        col = QVBoxLayout()
-        col.setContentsMargins(0, 0, 0, 0)
-        col.setSpacing(2)
-        title = QLabel(item.get("title") or "Activity")
-        title.setStyleSheet(f"color:{MAIN};font:12px '{UI_FONT}';border:none;")
-        detail = QLabel(item.get("detail") or item.get("kind", "activity"))
-        detail.setStyleSheet(f"color:{MID};font:10px '{MONO_FONT}';border:none;")
-        col.addWidget(title)
-        col.addWidget(detail)
-        lay.addLayout(col, 1)
+        lay.setContentsMargins(14, 10, 14, 10)
+        lay.setSpacing(12)
+
         status = str(item.get("status", "info")).lower()
-        badge = QLabel(status)
-        badge.setStyleSheet(replica_badge_style("ok" if status == "ok" else "warn" if status == "error" else "info"))
-        lay.addWidget(badge, 0, Qt.AlignmentFlag.AlignTop)
+        tone = "ok" if status == "ok" else ("err" if status == "error" else "info")
+        dot = QLabel()
+        dot.setFixedSize(8, 8)
+        col = T.tone_color(tone, ac)
+        dot.setStyleSheet(f"background:{col};border-radius:4px;")
+        lay.addWidget(dot, 0, Qt.AlignmentFlag.AlignVCenter)
+
+        col_l = QVBoxLayout()
+        col_l.setContentsMargins(0, 0, 0, 0)
+        col_l.setSpacing(2)
+        title = QLabel(_human(item.get("title") or "Activity", period=False))
+        title.setStyleSheet(T.label_qss(13, T.TEXT, 700))
+        detail = QLabel(_human(item.get("detail") or item.get("kind", "activity")))
+        detail.setStyleSheet(T.label_qss(T.T_SMALL, T.TEXT_MUTED, 500))
+        col_l.addWidget(title)
+        col_l.addWidget(detail)
+        lay.addLayout(col_l, 1)
+
+        try:
+            stamp = datetime.fromtimestamp(item.get("ts", time.time())).strftime("%b %d · %H:%M")
+        except Exception:
+            stamp = ""
+        when = QLabel(stamp)
+        when.setStyleSheet(T.label_qss(10.5, T.TEXT_DIM, 600, mono=True))
+        lay.addWidget(when, 0, Qt.AlignmentFlag.AlignVCenter)
+
+        badge = T.Pill(status.upper(), tone, ac)
+        lay.addWidget(badge, 0, Qt.AlignmentFlag.AlignVCenter)
         return row
 
     def _refresh(self):
         self._clear()
-        entries = list(reversed(load_activity_log()))[:30]
+        entries = list(reversed(load_activity_log()))[:40]
+        self._header.set_badge(f"{len(entries)} entries" if entries else "")
+        self._clear_btn.setVisible(bool(entries))
+        self._list.addWidget(self._empty)
+        self._empty.setVisible(not entries)
         for item in entries:
             self._list.addWidget(self._entry_row(item))
         self._list.addStretch(1)
@@ -6871,10 +7399,22 @@ class HtmlActivityPage(QWidget):
         self._refresh()
 
     def update_accent(self, color):
+        self._header.set_accent(color)
+        self._clear_btn.setStyleSheet(T.button_qss(False, color))
+        self._scroll.setStyleSheet(T.scroll_area_qss(color, 8))
+        self._empty.set_accent(color)
         self._refresh()
 
 
 class QuickToolsPage(QWidget):
+    _TOOL_ICON = {
+        "RAM Boost": "ram",
+        "Flush DNS": "network",
+        "Clean Temp": "sparkle",
+        "Clear Shaders": "gpu",
+        "Network Reset": "refresh",
+    }
+
     def __init__(self, get_ac, parent=None):
         super().__init__(parent)
         self._get_ac = get_ac
@@ -6882,61 +7422,98 @@ class QuickToolsPage(QWidget):
         self._worker = None
         self._buttons = []
         self._cards = []
+        self._statuses = []
+        ac = self._get_ac()
         self.setStyleSheet("background:transparent;border:none;")
         root = QVBoxLayout(self)
-        root.setContentsMargins(28, 28, 28, 0)
-        root.setSpacing(0)
-        self._title = QLabel("Quick Tools")
-        self._title.setStyleSheet(
-            f"color:{HOLO_TEXT};font-family:'{UI_FONT}';font-size:25px;font-weight:300;border:none;background:transparent;"
-        )
-        self._subtitle = QLabel("one-click system utilities")
-        self._subtitle.setStyleSheet(f"color:{HOLO_MUTED};font:500 11px '{MONO_FONT}';border:none;background:transparent;")
-        root.addWidget(self._title)
-        root.addWidget(self._subtitle)
-        root.addSpacing(22)
+        root.setContentsMargins(4, 4, 8, 0)
+        root.setSpacing(14)
 
+        self._header = T.PageHeader(
+            "ONE-CLICK UTILITIES",
+            "Quick Tools",
+            "Common maintenance actions that run immediately and record themselves in Activity.",
+            ac,
+        )
+        root.addWidget(self._header)
+
+        scroll = SmoothScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self._scroll = scroll
+        host = QWidget()
+        host.setStyleSheet("background:transparent;border:none;")
+        outer = QVBoxLayout(host)
+        outer.setContentsMargins(2, 2, 6, 12)
+        outer.setSpacing(12)
         grid = QGridLayout()
         grid.setContentsMargins(0, 0, 0, 0)
         grid.setHorizontalSpacing(12)
         grid.setVerticalSpacing(12)
         for index, entry in enumerate(quick_tool_entries()):
-            card = QFrame()
-            card.setStyleSheet(hologram_panel_style(18, self._get_ac()))
+            card = T.Card(ac, T.R_CARD)
             lay = QVBoxLayout(card)
-            lay.setContentsMargins(16, 16, 16, 16)
-            lay.setSpacing(11)
+            lay.setContentsMargins(18, 16, 18, 16)
+            lay.setSpacing(10)
+            head = QHBoxLayout()
+            head.setSpacing(10)
+            tile = QLabel()
+            tile.setFixedSize(34, 34)
+            tile.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            kind = self._TOOL_ICON.get(entry["name"], "bolt")
+            tile.setPixmap(T.icon(kind, ac, 17).pixmap(17, 17))
+            tile.setStyleSheet(
+                "QLabel{"
+                f"background:{T.rgba(ac, 26)};"
+                f"border:1px solid {T.rgba(ac, 60)};"
+                "border-radius:10px;"
+                "}"
+            )
+            head.addWidget(tile)
             name = QLabel(entry["name"])
-            name.setStyleSheet(f"color:{HOLO_TEXT};font:800 14px '{UI_FONT}';border:none;background:transparent;")
-            desc = QLabel(entry.get("desc", ""))
+            name.setStyleSheet(T.label_qss(14.5, T.TEXT, 700))
+            head.addWidget(name)
+            head.addStretch(1)
+            lay.addLayout(head)
+            desc = QLabel(_human(entry.get("desc", "")))
             desc.setWordWrap(True)
-            desc.setStyleSheet(f"color:{HOLO_MUTED};font:500 11px '{MONO_FONT}';border:none;line-height:1.5;background:transparent;")
-            btn = QPushButton("run")
-            btn.setFixedSize(76, 34)
-            btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn.setStyleSheet(hologram_button_style(False, self._get_ac()))
-            btn.clicked.connect(lambda _=False, item=entry: self._run_tool(item))
-            lay.addWidget(name)
+            desc.setStyleSheet(T.label_qss(T.T_SMALL, T.TEXT_MUTED, 500))
             lay.addWidget(desc)
             lay.addStretch(1)
-            lay.addWidget(btn, 0, Qt.AlignmentFlag.AlignLeft)
+            foot = QHBoxLayout()
+            foot.setSpacing(10)
+            btn = T.make_button("Run", False, ac, "bolt", height=34)
+            btn.setFixedWidth(88)
+            btn.clicked.connect(lambda _=False, item=entry: self._run_tool(item))
+            status = QLabel("")
+            status.setStyleSheet(T.label_qss(11, T.TEXT_DIM, 600))
+            foot.addWidget(btn)
+            foot.addWidget(status, 1)
+            lay.addLayout(foot)
+            card.setMinimumHeight(150)
             grid.addWidget(card, index // 3, index % 3)
             self._buttons.append(btn)
             self._cards.append(card)
-        root.addLayout(grid)
-        root.addSpacing(16)
+            self._statuses.append(status)
+        outer.addLayout(grid)
+        outer.addStretch(1)
+        scroll.setWidget(host)
+        root.addWidget(scroll, 1)
         self._status = QLabel("")
-        self._status.setStyleSheet(f"color:{HOLO_MUTED};font:500 11px '{MONO_FONT}';border:none;background:transparent;")
+        self._status.setStyleSheet(T.label_qss(T.T_SMALL, T.TEXT_MUTED, 600))
         root.addWidget(self._status)
-        root.addStretch(1)
 
     def _run_tool(self, entry):
         if not self._plan_active:
-            self._status.setText("No active plan.")
+            self._status.setText("An active plan is required to run tools.")
             return
         if self._worker and self._worker.isRunning():
             return
-        self._status.setText(f"running {entry['name'].lower()}...")
+        self._status.setText(f"Running {entry['name']}…")
+        for status in self._statuses:
+            status.setText("")
         for btn in self._buttons:
             btn.setEnabled(False)
         self._worker = TweakWorker([entry])
@@ -6953,15 +7530,15 @@ class QuickToolsPage(QWidget):
         return
 
     def update_accent(self, color):
+        self._header.set_accent(color)
+        self._scroll.setStyleSheet(T.scroll_area_qss(color, 8))
         for card in self._cards:
-            card.setStyleSheet(hologram_panel_style(18, color))
+            card.set_accent(color)
         for btn in self._buttons:
-            btn.setStyleSheet(hologram_button_style(False, color))
+            btn.setStyleSheet(T.button_qss(False, color))
 
     def set_plan_active(self, active):
         self._plan_active = bool(active)
-
-
 class _UninstallerWorker(QThread):
     result = pyqtSignal(list)
     def run(self):
@@ -7023,23 +7600,23 @@ class HtmlUninstallerPage(QWidget):
     def __init__(self, get_ac, parent=None):
         super().__init__(parent)
         self._get_ac = get_ac
-        self.setStyleSheet(f"background:{BG};")
+        self.setStyleSheet("background:transparent;border:none;")
         root = QVBoxLayout(self)
-        root.setContentsMargins(32, 28, 32, 28)
-        root.setSpacing(0)
-        self._title = QLabel("Uninstaller")
-        self._title.setStyleSheet(replica_title_style())
-        self._subtitle = QLabel("uninstall programs from your system")
-        self._subtitle.setStyleSheet(f"color:{MID};font:11px '{MONO_FONT}';border:none;")
-        root.addWidget(self._title)
-        root.addWidget(self._subtitle)
-        root.addSpacing(24)
+        root.setContentsMargins(4, 4, 8, 0)
+        root.setSpacing(14)
+        self._header = T.PageHeader(
+            "PROGRAM MANAGEMENT",
+            "Uninstaller",
+            "Remove installed programs without leaving Hextra. The list is read from the Windows uninstall registry.",
+            self._get_ac(),
+        )
+        root.addWidget(self._header)
 
         self._scroll = SmoothScrollArea()
         self._scroll.setWidgetResizable(True)
         self._scroll.setFrameShape(QFrame.Shape.NoFrame)
         self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self._scroll.setStyleSheet(f"QScrollArea{{background:transparent;border:none;}}QScrollBar:vertical{{background:transparent;width:4px;border:none;margin:6px 0 6px 0;}}QScrollBar::handle:vertical{{background:{LINE};border:none;border-radius:2px;min-height:24px;}}QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical{{height:0;}}")
+        self._scroll.setStyleSheet(T.scroll_area_qss(self._get_ac(), 8))
         self._content = QWidget()
         self._content.setStyleSheet("background:transparent;")
         self._list_ly = QVBoxLayout(self._content)
@@ -7049,8 +7626,8 @@ class HtmlUninstallerPage(QWidget):
         self._scroll.setWidget(self._content)
         root.addWidget(self._scroll, 1)
 
-        self._loading = QLabel("Scanning installed programs...")
-        self._loading.setStyleSheet(f"color:{MID};font:12px '{UI_FONT}';border:none;")
+        self._loading = QLabel("Scanning installed programs…")
+        self._loading.setStyleSheet(T.label_qss(T.T_BODY, T.TEXT_MUTED, 500))
         self._list_ly.insertWidget(0, self._loading)
 
         self._worker = _UninstallerWorker()
@@ -7065,13 +7642,23 @@ class HtmlUninstallerPage(QWidget):
         provider = QFileIconProvider()
 
         self._loading.setVisible(False)
+        self._loading.deleteLater()
         item = self._list_ly.takeAt(self._list_ly.count() - 1)
         if item.spacerItem():
             pass
+        if not programs:
+            empty = T.EmptyState(
+                "box",
+                "No installed programs found",
+                "Hextra reads the Windows uninstall registry. On this PC nothing was listed.",
+                self._get_ac(),
+            )
+            self._empty = empty
+            self._list_ly.addWidget(empty)
         for p in programs:
             card = QFrame()
-            card.setStyleSheet(f"QFrame{{background:{PANEL};border:1px solid {LINE};border-radius:4px;}}")
-            card.setFixedHeight(60)
+            card.setStyleSheet(T.card_qss(self._get_ac(), T.R_ROW, alpha=170))
+            card.setFixedHeight(56)
             card_l = QHBoxLayout(card)
             card_l.setContentsMargins(16, 8, 16, 8)
             card_l.setSpacing(12)
@@ -7094,15 +7681,15 @@ class HtmlUninstallerPage(QWidget):
             if len(name_text) > 52:
                 name_text = name_text[:49] + "..."
             name_lbl = QLabel(name_text)
-            name_lbl.setStyleSheet(f"color:{MAIN};font:500 13px '{UI_FONT}';border:none;")
+            name_lbl.setStyleSheet(T.label_qss(13, T.TEXT, 600))
             name_lbl.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
             name_lbl.setMinimumWidth(10)
             card_l.addWidget(name_lbl, 1)
             btn = QPushButton("Uninstall")
-            btn.setFixedWidth(96)
-            btn.setFixedHeight(30)
+            btn.setFixedWidth(104)
+            btn.setFixedHeight(32)
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn.setStyleSheet(_ghost(self._get_ac()))
+            btn.setStyleSheet(T.button_qss(False, self._get_ac()))
             btn.clicked.connect(lambda _=False, cmd=p["cmd"]: self._uninstall(cmd))
             card_l.addWidget(btn)
             self._list_ly.addWidget(card)
@@ -7121,10 +7708,16 @@ class HtmlUninstallerPage(QWidget):
             item = self._list_ly.itemAt(i)
             w = item.widget()
             if w and isinstance(w, QFrame) and w.layout():
+                w.setStyleSheet(T.card_qss(color, T.R_ROW, alpha=170))
                 if w.layout().count() >= 3:
                     btn = w.layout().itemAt(2).widget()
                     if isinstance(btn, QPushButton):
-                        btn.setStyleSheet(_ghost(color))
+                        btn.setStyleSheet(T.button_qss(False, color))
+        if getattr(self, "_empty", None) is not None:
+            self._empty.set_accent(color)
+        if getattr(self, "_header", None) is not None:
+            self._header.set_accent(color)
+        self._scroll.setStyleSheet(T.scroll_area_qss(color, 8))
 
 class HtmlRestorePage(QWidget):
     def __init__(self, get_ac, parent=None):
@@ -7135,33 +7728,20 @@ class HtmlRestorePage(QWidget):
         self._rp_poll.timeout.connect(self._poll_restore_result)
         self.setStyleSheet("background:transparent;border:none;")
         root = QVBoxLayout(self)
-        root.setContentsMargins(28, 28, 28, 0)
-        root.setSpacing(0)
+        root.setContentsMargins(4, 4, 8, 0)
+        root.setSpacing(14)
 
-        top = QHBoxLayout()
-        top.setContentsMargins(0, 0, 0, 0)
-        top.setSpacing(8)
-        title_col = QVBoxLayout()
-        title_col.setContentsMargins(0, 0, 0, 0)
-        title_col.setSpacing(2)
-        self._title = QLabel("Recovery")
-        self._title.setStyleSheet(
-            f"color:{HOLO_TEXT};font-family:'{UI_FONT}';font-size:25px;font-weight:300;border:none;background:transparent;"
+        self._header = T.PageHeader(
+            "SAFETY NET",
+            "Recovery",
+            "System Restore integration: create a checkpoint before tweaking, roll back afterwards.",
+            self._get_ac(),
         )
-        self._subtitle = QLabel("restore / system protection")
-        self._subtitle.setStyleSheet(
-            f"color:{HOLO_MUTED};font:500 11px '{MONO_FONT}';border:none;background:transparent;"
-        )
-        title_col.addWidget(self._title)
-        title_col.addWidget(self._subtitle)
-        top.addLayout(title_col)
-        top.addStretch(1)
-        self._mode_badge = QLabel("local safety")
+        self._mode_badge = QLabel("LOCAL SAFETY")
         self._mode_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._mode_badge.setStyleSheet(hologram_badge_style(self._get_ac()))
-        top.addWidget(self._mode_badge, 0, Qt.AlignmentFlag.AlignTop)
-        root.addLayout(top)
-        root.addSpacing(22)
+        self._header.add_action(self._mode_badge)
+        root.addWidget(self._header)
 
         self._card = QFrame()
         self._card.setObjectName("RestoreStatusCard")
@@ -7182,14 +7762,14 @@ class HtmlRestorePage(QWidget):
         self._restore_sub = QLabel("")
         self._restore_sub.setWordWrap(True)
         self._restore_sub.setStyleSheet(
-            f"color:{HOLO_MUTED};font:500 12px '{MONO_FONT}';border:none;background:transparent;"
+            f"color:{HOLO_MUTED};font-family:'{UI_FONT}';font-size:12.5px;font-weight:500;border:none;background:transparent;"
         )
         text_col = QVBoxLayout()
         text_col.setContentsMargins(0, 0, 0, 0)
         text_col.setSpacing(5)
         text_col.addWidget(self._restore_title)
         text_col.addWidget(self._restore_sub)
-        self._revert_btn = QPushButton("open restore")
+        self._revert_btn = QPushButton("Open restore")
         self._revert_btn.setFixedSize(128, 38)
         self._revert_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._revert_btn.setStyleSheet(hologram_button_style(False, self._get_ac()))
@@ -7228,7 +7808,7 @@ class HtmlRestorePage(QWidget):
         self._create_desc = QLabel("Creates a Windows System Restore checkpoint before applying changes.\nRequires admin privileges.")
         self._create_desc.setWordWrap(True)
         self._create_desc.setStyleSheet(
-            f"color:{HOLO_MUTED};font:500 12px '{MONO_FONT}';border:none;background:transparent;"
+            f"color:{HOLO_MUTED};font-family:'{UI_FONT}';font-size:12.5px;font-weight:500;border:none;background:transparent;"
         )
         create_l.addWidget(self._create_desc)
         create_l.addSpacing(18)
@@ -7236,10 +7816,8 @@ class HtmlRestorePage(QWidget):
         action_row = QHBoxLayout()
         action_row.setContentsMargins(0, 0, 0, 0)
         action_row.setSpacing(14)
-        self._create_btn = QPushButton("create restore point")
-        self._create_btn.setFixedSize(168, 38)
-        self._create_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._create_btn.setStyleSheet(hologram_button_style(True, self._get_ac()))
+        self._create_btn = T.make_button("Create restore point", True, self._get_ac(), "restore", height=38)
+        self._create_btn.setFixedWidth(200)
         self._create_btn.clicked.connect(self._make_rp)
         self._prog = _prog_bar(self._get_ac())
         self._prog.setFixedHeight(6)
@@ -7247,7 +7825,7 @@ class HtmlRestorePage(QWidget):
         self._prog.setVisible(False)
         self._status = QLabel("")
         self._status.setStyleSheet(
-            f"color:{HOLO_MUTED};font:500 11px '{MONO_FONT}';border:none;background:transparent;"
+            f"color:{HOLO_MUTED};font-family:'{UI_FONT}';font-size:12px;font-weight:500;border:none;background:transparent;"
         )
         progress_col = QVBoxLayout()
         progress_col.setContentsMargins(0, 0, 0, 0)
@@ -7339,7 +7917,7 @@ class HtmlRestorePage(QWidget):
         self._prog.setValue(12)
         self._status.setText("creating restore point...")
         self._status.setStyleSheet(
-            f"color:{HOLO_MUTED};font:500 11px '{MONO_FONT}';border:none;background:transparent;"
+            f"color:{HOLO_MUTED};font-family:'{UI_FONT}';font-size:12px;font-weight:500;border:none;background:transparent;"
         )
         self._rp_result = None
         def _do():
@@ -7663,30 +8241,21 @@ class HologramSettingsPage(QWidget):
         self.setStyleSheet("background:transparent;border:none;")
 
         outer_layout = QVBoxLayout(self)
-        outer_layout.setContentsMargins(28, 28, 28, 0)
+        outer_layout.setContentsMargins(4, 4, 8, 0)
         outer_layout.setSpacing(0)
 
-        header_layout = QHBoxLayout()
-        header_layout.setContentsMargins(0, 0, 0, 0)
-        header_layout.setSpacing(10)
-        title_column = QVBoxLayout()
-        title_column.setContentsMargins(0, 0, 0, 0)
-        title_column.setSpacing(2)
-        self._title = QLabel("Settings")
-        self._title.setStyleSheet(
-            f"color:{HOLO_TEXT};font-family:'{UI_FONT}';font-size:25px;font-weight:300;border:none;background:transparent;"
+        self._header = T.PageHeader(
+            "PREFERENCES",
+            "Settings",
+            "Theme, local preferences and game folders. Everything is stored on this PC only.",
+            self._get_ac(),
         )
-        self._subtitle = QLabel("theme / local preferences / folders")
-        self._subtitle.setStyleSheet(f"color:{HOLO_MUTED};font:500 11px '{MONO_FONT}';border:none;background:transparent;")
-        title_column.addWidget(self._title)
-        title_column.addWidget(self._subtitle)
-        header_layout.addLayout(title_column, 1)
-        self._mode_badge = QLabel("offline settings")
+        self._mode_badge = QLabel("LOCAL BUILD")
         self._mode_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._mode_badge.setStyleSheet(hologram_badge_style(self._get_ac()))
-        header_layout.addWidget(self._mode_badge, 0, Qt.AlignmentFlag.AlignTop)
-        outer_layout.addLayout(header_layout)
-        outer_layout.addSpacing(22)
+        self._header.add_action(self._mode_badge)
+        outer_layout.addWidget(self._header)
+        outer_layout.addSpacing(16)
 
         self._scroll = SmoothScrollArea()
         self._scroll.setWidgetResizable(True)
@@ -7718,11 +8287,11 @@ class HologramSettingsPage(QWidget):
         self._accent_name.setStyleSheet(f"color:{HOLO_TEXT};font:800 13px '{UI_FONT}';border:none;background:transparent;")
         self._accent_hint = QLabel("Navigation, backdrop, cards, tweak rows, buttons, toggles and progress bars update live.")
         self._accent_hint.setWordWrap(True)
-        self._accent_hint.setStyleSheet(f"color:{HOLO_MUTED};font:500 11px '{MONO_FONT}';border:none;background:transparent;")
+        self._accent_hint.setStyleSheet(f"color:{HOLO_MUTED};font-family:'{UI_FONT}';font-size:12px;font-weight:500;border:none;background:transparent;")
         preview_text_layout.addWidget(self._accent_name)
         preview_text_layout.addWidget(self._accent_hint)
         preview_layout.addLayout(preview_text_layout, 1)
-        self._pick_button = QPushButton("pick custom color")
+        self._pick_button = QPushButton("Pick custom color")
         self._pick_button.setFixedHeight(38)
         self._pick_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self._pick_button.clicked.connect(self._pick_custom_color)
@@ -7748,10 +8317,10 @@ class HologramSettingsPage(QWidget):
         save_layout.setContentsMargins(0, 6, 0, 0)
         save_layout.setSpacing(8)
         self._custom_name = QLineEdit()
-        self._custom_name.setPlaceholderText("save current color as...")
+        self._custom_name.setPlaceholderText("Save this colour as…")
         self._custom_name.setFixedHeight(38)
         save_layout.addWidget(self._custom_name, 1)
-        self._save_custom_button = QPushButton("save theme")
+        self._save_custom_button = QPushButton("Save theme")
         self._save_custom_button.setFixedHeight(38)
         self._save_custom_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self._save_custom_button.clicked.connect(self._save_custom_theme)
@@ -7772,8 +8341,8 @@ class HologramSettingsPage(QWidget):
         snow_text_layout.setSpacing(2)
         snow_title = QLabel("Snow effect")
         snow_title.setStyleSheet(f"color:{HOLO_TEXT};font:800 13px '{UI_FONT}';border:none;background:transparent;")
-        snow_desc = QLabel("animated particles over the Hologram shell")
-        snow_desc.setStyleSheet(f"color:{HOLO_MUTED};font:500 11px '{MONO_FONT}';border:none;background:transparent;")
+        snow_desc = QLabel("Animated particles drift over the shell while Hextra is open.")
+        snow_desc.setStyleSheet(f"color:{HOLO_MUTED};font-family:'{UI_FONT}';font-size:12px;font-weight:500;border:none;background:transparent;")
         snow_text_layout.addWidget(snow_title)
         snow_text_layout.addWidget(snow_desc)
         self._snow = HologramToggle()
@@ -7791,9 +8360,9 @@ class HologramSettingsPage(QWidget):
         )
         self._update_status = QLabel(f"Current build {VERSION}")
         self._update_status.setWordWrap(True)
-        self._update_status.setStyleSheet(f"color:{HOLO_MUTED};font:500 11px '{MONO_FONT}';border:none;background:transparent;")
+        self._update_status.setStyleSheet(f"color:{HOLO_MUTED};font-family:'{UI_FONT}';font-size:12px;font-weight:500;border:none;background:transparent;")
         build_layout.addWidget(self._update_status)
-        self._check_updates_button = self._make_button("info", False, self._request_update_check)
+        self._check_updates_button = self._make_button("Check for updates", False, self._request_update_check)
         build_layout.addWidget(self._check_updates_button, 0, Qt.AlignmentFlag.AlignLeft)
         content_layout.addWidget(build_panel)
 
@@ -7805,8 +8374,8 @@ class HologramSettingsPage(QWidget):
         data_actions = QHBoxLayout()
         data_actions.setContentsMargins(0, 0, 0, 0)
         data_actions.setSpacing(8)
-        data_actions.addWidget(self._make_button("export settings", False, self._export_settings))
-        data_actions.addWidget(self._make_button("import settings", True, self._import_settings))
+        data_actions.addWidget(self._make_button("Export settings", False, self._export_settings))
+        data_actions.addWidget(self._make_button("Import settings", True, self._import_settings))
         data_actions.addStretch(1)
         data_layout.addLayout(data_actions)
         content_layout.addWidget(data_panel)
@@ -7867,7 +8436,7 @@ class HologramSettingsPage(QWidget):
         title_label.setStyleSheet(f"color:{HOLO_TEXT};font:800 15px '{UI_FONT}';border:none;background:transparent;")
         description_label = QLabel(description)
         description_label.setWordWrap(True)
-        description_label.setStyleSheet(f"color:{HOLO_MUTED};font:500 11px '{MONO_FONT}';border:none;background:transparent;")
+        description_label.setStyleSheet(f"color:{HOLO_MUTED};font-family:'{UI_FONT}';font-size:12px;font-weight:500;border:none;background:transparent;")
         layout.addWidget(caption_label)
         layout.addWidget(title_label)
         layout.addWidget(description_label)
@@ -7894,7 +8463,7 @@ class HologramSettingsPage(QWidget):
         themes = load_custom_themes()
         if not themes:
             empty = QLabel("No saved custom themes yet.")
-            empty.setStyleSheet(f"color:{HOLO_MUTED};font:500 11px '{MONO_FONT}';border:none;background:transparent;")
+            empty.setStyleSheet(f"color:{HOLO_MUTED};font-family:'{UI_FONT}';font-size:12px;font-weight:500;border:none;background:transparent;")
             self._custom_theme_list.addWidget(empty)
             self._custom_theme_list.addStretch(1)
             return
@@ -8101,8 +8670,8 @@ class Dashboard(QWidget):
         root.addWidget(titlebar)
 
         body = QHBoxLayout()
-        body.setContentsMargins(28, 28, 28, 28)
-        body.setSpacing(24)
+        body.setContentsMargins(16, 16, 16, 16)
+        body.setSpacing(14)
         self._sidebar = HologramSidebar(self._get_ac())
         self._sidebar.page_selected.connect(self._switch)
         body.addWidget(self._sidebar)
@@ -8944,7 +9513,7 @@ class CornerGrip(QWidget):
 
 
 class Hextra(QWidget):
-    EDGE = 5; MW, MH = 820, 560
+    EDGE = 5; MW, MH = 1000, 660
 
     def __init__(self):
         super().__init__()
@@ -8970,7 +9539,7 @@ class Hextra(QWidget):
             self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
             self.setMouseTracking(True)
         self.setStyleSheet("background:transparent;border:none;")
-        self.resize(980, 640); self.setMinimumSize(self.MW, self.MH)
+        self.resize(1240, 800); self.setMinimumSize(1000, 660)
 
         self._stack = QStackedWidget(self)
         self._login = None

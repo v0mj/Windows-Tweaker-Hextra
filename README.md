@@ -21,6 +21,7 @@ Hextra/
 │   ├── legacy.py
 │   ├── main.py
 │   ├── ops.py
+│   ├── theme.py
 │   ├── ui.py
 │   └── workers.py
 ├── replica_ui/
@@ -31,6 +32,16 @@ Hextra/
 ├── requirements.txt
 └── .gitignore
 ```
+
+## Design system
+
+`hextra/theme.py` holds the visual language of the shell so every page stays
+consistent: colour roles, type scale, spacing, radii, surface/button/input
+styles, scrollbars, line icons and the shared widgets (`PageHeader`, `Card`,
+`Pill`, `StatTile`, `EmptyState`).
+
+Pages compose those primitives instead of hand-rolling stylesheets; the accent
+colour chosen in Settings re-themes the whole shell live.
 
 ## Requirements
 
